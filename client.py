@@ -25,7 +25,8 @@ while True:
             {"role": "user", "content": domanda},
         ],
         "temperature": 0.2,
-        "max_tokens": 180,
+        "max_tokens": 512,
+        "reasoning_effort": "none",
         "stream": False,
     }
 
