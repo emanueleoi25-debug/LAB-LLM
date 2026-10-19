@@ -41,6 +41,8 @@ def invia(messages):
     return testo
 
 
+messages = [{"role": "system", "content": SYSTEM}]
+
 while True:
     try:
         domanda = input("Tu> ").strip()
@@ -52,18 +54,20 @@ while True:
     if not domanda:
         continue
 
-    messages = [
-        {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": domanda},
-    ]
+    messages.append({"role": "user", "content": domanda})
 
     try:
-        invia(messages)
+        risposta = invia(messages)
     except requests.exceptions.Timeout:
+        messages.pop()  # la domanda non ha avuto risposta
         print("Attesa scaduta: controllare server, carico e tempi.")
     except requests.exceptions.ConnectionError:
+        messages.pop()  # la domanda non ha avuto risposta
         print("Connessione fallita: controllare server, URL e porta.")
     except requests.exceptions.HTTPError as errore:
+        messages.pop()  # la domanda non ha avuto risposta
         print("Errore HTTP:", errore.response.status_code, errore.response.text)
+    else:
+        messages.append({"role": "assistant", "content": risposta})
 
 
