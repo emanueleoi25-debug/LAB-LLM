@@ -15,4 +15,4 @@ server fermo e ripristinato.
 
 - NON fare commit da solo, prima chiedimi se bene la descrizione, chiedimi l'autorizzazione
 - ogni commit deve inizare con feat(client):
-- repo su cui pushare = "https://github.com/emanueleoi25-debug/LAB-LLM"
+
