@@ -32,6 +32,15 @@ Un'applicazione da terminale in Python che conversa con un modello locale e:
 - Dipendenze motivate, concordate e con versioni fissate.
 - Comandi documentati anche per PowerShell (Windows).
 
+## Struttura e comandi
+- Pacchetto `assistente/`: `graph.py` (stato, nodi, instradamento), `model.py` (collegamento al
+  modello), `cli.py` (ciclo da terminale, cronologia, log), `__main__.py` (`python -m assistente`).
+- Test in `tests/`; `tests/fakes.py` contiene il modello finto `ScriptedModel`.
+- Ambiente locale: `py -3.13 -m venv .venv`, poi `.\.venv\Scripts\Activate.ps1` e
+  `python -m pip install -r requirements-dev.txt`.
+- Test: `python -m pytest`. La suite deve passare sia su Python 3.13 (venv locale) sia su
+  Python 3.14 (Docker).
+
 ## Metodo: Superpowers
 - Usare le skill di Superpowers per brainstorming, specifica, piano, implementazione e verifica.
 - Non scrivere codice prima che io abbia approvato la specifica e poi il piano.
