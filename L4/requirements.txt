@@ -3,3 +3,4 @@ langchain-core==1.7.0
 python-dotenv==1.2.4
 langchain-openai==1.7.2
 tzdata==2026.5
+openai==3.38.0
