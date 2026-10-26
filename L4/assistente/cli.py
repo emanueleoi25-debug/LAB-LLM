@@ -18,6 +18,8 @@ SYSTEM_PROMPT = (
     "Per conoscere la data o l'ora attuali usa sempre lo strumento get_current_time "
     "e non inventarle."
 )
+logger = logging.getLogger(__name__)
+
 EXIT_WORDS = {"esci", "exit"}
 EMPTY_REPLY = "(nessuna risposta dal modello)"
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -58,6 +60,14 @@ def run_chat(
             except openai.APIError as exc:
                 print(
                     f"Errore: il modello non ha risposto ({exc}). Domanda scartata, riprova.",
+                    file=errors,
+                )
+                continue
+            except Exception as exc:
+                # Es. tool_call con argomenti che langchain-openai non riesce a convertire.
+                logger.debug("errore durante la domanda", exc_info=True)
+                print(
+                    f"Errore: risposta del modello non valida ({exc}). Domanda scartata, riprova.",
                     file=errors,
                 )
                 continue

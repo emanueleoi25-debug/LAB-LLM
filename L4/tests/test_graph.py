@@ -139,3 +139,24 @@ def test_history_after_tool_turn_is_valid_for_next_turn():
     history, _ = ask(graph, new_history(), "ora a Tokyo?")
     ask(graph, history, "grazie")
     assert [m.type for m in model.calls[2]] == ["system", "human", "ai", "tool", "ai", "human"]
+
+
+def invalid_call(id):
+    return {"name": "get_current_time", "args": "{bad", "id": id, "error": "JSON non valido", "type": "invalid_tool_call"}
+
+
+def test_invalid_tool_call_gets_error_reply():
+    model = ScriptedModel([AIMessage("", invalid_tool_calls=[invalid_call("c1")]), AIMessage("riprovo")])
+    result = build_graph(model, [clock]).invoke(start())
+    tools = [m for m in result["messages"] if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in tools] == ["c1"]
+    assert tools[0].content.startswith("Errore: argomenti non validi per get_current_time")
+    assert result["messages"][-1].content == "riprovo" and result["tool_steps"] == 1
+
+
+def test_limit_closes_invalid_tool_calls():
+    model = ScriptedModel([AIMessage("", invalid_tool_calls=[invalid_call(f"c{i}")]) for i in range(2)])
+    result = build_graph(model, [clock], max_tool_steps=1).invoke(start())
+    tools = [m for m in result["messages"] if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in tools] == ["c0", "c1"]
+    assert tools[-1].content == TOOL_SKIPPED

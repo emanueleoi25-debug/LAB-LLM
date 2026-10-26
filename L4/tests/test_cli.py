@@ -93,3 +93,12 @@ def test_main_fails_with_missing_config(tmp_path, monkeypatch, capsys):
 def test_http_client_loggers_are_quiet(name):
     configure_logging("INFO")
     assert logging.getLogger(name).level == logging.WARNING
+
+
+def test_unexpected_model_error_discards_question_and_continues():
+    model = ScriptedModel([ValueError("tool_calls.0.args non validi"), AIMessage("ok")])
+    out, errs = io.StringIO(), io.StringIO()
+    run_chat(build_graph(model), input_fn=inputs("prima", "seconda", "esci"), output=out, errors=errs)
+    assert "Errore" in errs.getvalue()
+    assert [m.type for m in model.calls[1]] == ["system", "human"]
+    assert "Assistente> ok" in out.getvalue()

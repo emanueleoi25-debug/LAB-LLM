@@ -33,8 +33,15 @@ class ChatModel(Protocol):
 
 
 def _pending_tool_calls(state: AssistantState) -> list[dict]:
+    """Chiamate dell'ultima AIMessage, comprese quelle con argomenti non interpretabili.
+
+    Anche le `invalid_tool_calls` vanno chiuse con una ToolMessage: altrimenti la cronologia
+    conterrebbe una chiamata senza risposta e la richiesta successiva verrebbe rifiutata.
+    """
     last = state["messages"][-1]
-    return last.tool_calls if isinstance(last, AIMessage) else []
+    if not isinstance(last, AIMessage):
+        return []
+    return [*last.tool_calls, *last.invalid_tool_calls]
 
 
 def build_graph(model: ChatModel, tools: Sequence[BaseTool] = (), max_tool_steps: int = 3):
@@ -50,7 +57,9 @@ def build_graph(model: ChatModel, tools: Sequence[BaseTool] = (), max_tool_steps
             name, args = tool_call["name"], tool_call["args"]
             logger.info("strumento richiesto: %s %s", name, args)
             tool = tools_by_name.get(name)
-            if tool is None:
+            if tool_call.get("type") == "invalid_tool_call":
+                content = f"Errore: argomenti non validi per {name}: {tool_call.get('error') or args}"
+            elif tool is None:
                 content = f"Errore: strumento sconosciuto '{name}'."
             else:
                 try:
