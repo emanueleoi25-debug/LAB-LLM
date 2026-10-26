@@ -8,11 +8,16 @@ from typing import TextIO
 import openai
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from assistente.config import ConfigError, load_settings
+from assistente.config import ConfigError, Settings, load_settings
 from assistente.graph import build_graph
 from assistente.model import ModelCheckError, check_model, create_chat_model
+from assistente.tools import make_clock_tool
 
-SYSTEM_PROMPT = "Sei l'assistente del laboratorio. Rispondi in italiano, in modo breve e chiaro."
+SYSTEM_PROMPT = (
+    "Sei l'assistente del laboratorio. Rispondi in italiano, in modo breve e chiaro. "
+    "Per conoscere la data o l'ora attuali usa sempre lo strumento get_current_time "
+    "e non inventarle."
+)
 EXIT_WORDS = {"esci", "exit"}
 EMPTY_REPLY = "(nessuna risposta dal modello)"
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -69,6 +74,12 @@ def configure_logging(level: str) -> None:
         logging.getLogger(name).setLevel(logging.WARNING)
 
 
+def create_graph(settings: Settings):
+    """Grafo dell'applicazione: modello di LM Studio con lo strumento orologio."""
+    tools = [make_clock_tool(settings.default_timezone)]
+    return build_graph(create_chat_model(settings, tools), tools, settings.max_tool_steps)
+
+
 def main() -> int:
     try:
         settings = load_settings()
@@ -81,5 +92,5 @@ def main() -> int:
     except ModelCheckError as exc:
         print(exc, file=sys.stderr)
         return 1
-    run_chat(build_graph(create_chat_model(settings)))
+    run_chat(create_graph(settings))
     return 0

@@ -5,6 +5,7 @@ from langchain_openai import ChatOpenAI
 
 from assistente.config import Settings
 from assistente.model import ModelCheckError, check_model, create_chat_model
+from assistente.tools import make_clock_tool
 
 
 def settings(**overrides) -> Settings:
@@ -36,3 +37,8 @@ def test_create_chat_model_uses_settings():
     m = create_chat_model(settings())
     assert isinstance(m, ChatOpenAI) and m.model_name == "google/gemma-4-e2b"
     assert str(m.openai_api_base) == "http://localhost:1234/v1"
+
+
+def test_create_chat_model_binds_clock_tool():
+    bound = create_chat_model(settings(), [make_clock_tool("Europe/Rome")])
+    assert bound.kwargs["tools"][0]["function"]["name"] == "get_current_time"
