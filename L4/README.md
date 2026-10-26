@@ -124,3 +124,28 @@ Con LM Studio attivo e `.env` configurato:
 ```powershell
 $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:RUN_LMSTUDIO_TESTS
 ```
+
+## Verifica completa
+
+1. Test automatici su 3.13 e 3.14: `python -m pytest` e
+   `docker compose --profile test run --rm --build test` (tutti passed, le prove reali skipped).
+2. Prove reali con LM Studio (comando sopra): risposta, memoria della sessione, uso dell'orologio.
+3. In Docker, `docker compose run --rm assistente`:
+   - «Che ore sono a Tokyo?» → su stderr compare `strumento richiesto: get_current_time …` e la
+     risposta è coerente con l'ora reale;
+   - «Quale città ti ho chiesto prima?» → la risposta cita Tokyo;
+   - `esci`, nuovo avvio e di nuovo «Quale città ti ho chiesto prima?» → il modello non lo sa.
+
+## Diagnosi
+
+| Sintomo | Causa probabile | Cosa fare |
+|---|---|---|
+| `Configurazione non valida: LMSTUDIO_BASE_URL mancante…` (codice 2) | manca `.env` o una variabile | `Copy-Item .env.example .env` e controlla i valori |
+| `DEFAULT_TIMEZONE non valido` / `MAX_TOOL_STEPS non valido` (codice 2) | valore errato in `.env` | nome IANA come `Europe/Rome`; intero ≥ 1 |
+| `LM Studio non raggiungibile a …` (codice 1) | server di LM Studio spento o porta diversa | avvia il server in LM Studio; controlla `LMSTUDIO_BASE_URL` |
+| lo stesso messaggio solo in Docker | il container non raggiunge l'host | prova il comando di controllo della sezione Docker; se fallisce, in LM Studio attiva «Serve on Local Network» |
+| `Modello '…' non disponibile su …` (codice 1) | identificativo errato o modello non scaricato | usa uno degli identificativi elencati nel messaggio |
+| `Errore: il modello non ha risposto…` durante la chat | LM Studio fermato o modello scaricato dalla memoria | ricarica il modello e ripeti la domanda: la cronologia è intatta |
+| nessuna riga `strumento richiesto` nei log | `LOG_LEVEL` sopra `INFO`, oppure il modello ha risposto senza usare lo strumento | imposta `LOG_LEVEL=INFO`; riformula chiedendo l'ora attuale |
+
+Nel container i log riportano l'ora in UTC; le risposte dell'orologio usano invece il fuso richiesto.
