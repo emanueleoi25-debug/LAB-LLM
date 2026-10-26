@@ -35,6 +35,8 @@ Le variabili d'ambiente hanno la precedenza su `.env`, che resta fuori da Git.
 |---|---|---|---|
 | `LMSTUDIO_BASE_URL` | sì | — | indirizzo dell'API di LM Studio, es. `http://localhost:1234/v1` |
 | `LMSTUDIO_MODEL` | sì | — | identificativo del modello come restituito da `GET /v1/models` |
+| `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non ne indica uno (nome IANA) |
+| `MAX_TOOL_STEPS` | no | `3` | giri modello→strumenti consentiti per ogni domanda (intero ≥ 1) |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 
 In LM Studio: carica il modello (es. `google/gemma-4-e2b`) e avvia il server locale (porta 1234).
@@ -57,6 +59,26 @@ disponibili. Una variabile mancante o non valida fa terminare con codice 2.
 Scrivi una domanda dopo `Tu>`. Per uscire: `esci`, `exit`, Ctrl+C oppure Ctrl+Z seguito da Invio
 (Ctrl+D su Linux/macOS). Se il modello non risponde durante la sessione, la domanda viene scartata
 e si può riprovare.
+
+## Strumento orologio, log e limite di passaggi
+
+Il modello può chiedere lo strumento `get_current_time(timezone)`. `timezone` è un nome IANA
+(es. `Asia/Tokyo`, maiuscole e minuscole indifferenti); se manca si usa `DEFAULT_TIMEZONE`. Il
+risultato riporta sempre il fuso, es. `2026-10-27T01:37:30+09:00 (Asia/Tokyo)`. Un fuso
+sconosciuto produce un messaggio d'errore che torna al modello, senza interrompere la sessione.
+
+Il grafo esegue lo strumento, restituisce il risultato al modello e ottiene la risposta finale.
+I log vanno su stderr, separati dalle risposte:
+
+```
+2026-10-26 17:37:30,242 INFO assistente.graph: strumento richiesto: get_current_time {'timezone': 'Asia/Tokyo'}
+2026-10-26 17:37:30,244 INFO assistente.graph: risultato strumento: 2026-10-27T01:37:30+09:00 (Asia/Tokyo)
+Assistente> Attualmente sono le ore 01:37:30 del 27 ottobre 2026 a Tokyo.
+```
+
+Con `LOG_LEVEL=WARNING` queste righe non compaiono. Se in una stessa domanda il modello continua a
+chiedere strumenti oltre `MAX_TOOL_STEPS` giri, il grafo si ferma, registra un WARNING e risponde
+«Mi fermo: ho raggiunto il limite di N passaggi con gli strumenti…».
 
 ## Test
 
