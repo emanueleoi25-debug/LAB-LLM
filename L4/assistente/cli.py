@@ -5,10 +5,12 @@ import sys
 from collections.abc import Callable
 from typing import TextIO
 
+import openai
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
+from assistente.config import ConfigError, load_settings
 from assistente.graph import build_graph
-from assistente.model import FixedReplyModel
+from assistente.model import ModelCheckError, check_model, create_chat_model
 
 SYSTEM_PROMPT = "Sei l'assistente del laboratorio. Rispondi in italiano, in modo breve e chiaro."
 EXIT_WORDS = {"esci", "exit"}
@@ -46,7 +48,14 @@ def run_chat(
                 continue
             if question.lower() in EXIT_WORDS:
                 break
-            history, text = ask(graph, history, question)
+            try:
+                history, text = ask(graph, history, question)
+            except openai.APIError as exc:
+                print(
+                    f"Errore: il modello non ha risposto ({exc}). Domanda scartata, riprova.",
+                    file=errors,
+                )
+                continue
             print(f"Assistente> {text.strip() or EMPTY_REPLY}", file=output)
     except (EOFError, KeyboardInterrupt):
         print(file=output)
@@ -56,11 +65,21 @@ def run_chat(
 
 def configure_logging(level: str) -> None:
     logging.basicConfig(stream=sys.stderr, level=level, format=LOG_FORMAT)
-    for name in ("httpx", "httpcore", "openai"):
+    for name in ("httpx", "httpx2", "httpcore", "openai"):
         logging.getLogger(name).setLevel(logging.WARNING)
 
 
 def main() -> int:
-    configure_logging("INFO")
-    run_chat(build_graph(FixedReplyModel()))
+    try:
+        settings = load_settings()
+    except ConfigError as exc:
+        print(f"Configurazione non valida: {exc}", file=sys.stderr)
+        return 2
+    configure_logging(settings.log_level)
+    try:
+        check_model(settings)
+    except ModelCheckError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    run_chat(build_graph(create_chat_model(settings)))
     return 0
