@@ -33,13 +33,18 @@ Un'applicazione da terminale in Python che conversa con un modello locale e:
 - Comandi documentati anche per PowerShell (Windows).
 
 ## Struttura e comandi
-- Pacchetto `assistente/`: `graph.py` (stato, nodi, instradamento), `model.py` (collegamento al
-  modello), `cli.py` (ciclo da terminale, cronologia, log), `__main__.py` (`python -m assistente`).
+- Pacchetto `assistente/`: `config.py` (variabili d'ambiente), `tools.py` (orologio), `graph.py`
+  (stato, nodi, instradamento), `model.py` (collegamento a LM Studio), `cli.py` (ciclo da
+  terminale, cronologia, log), `__main__.py` (`python -m assistente`).
+- Docker: `Dockerfile` multi-stage (`app` predefinito, `test` per la suite) e `compose.yaml`
+  (progetto `assistente-laboratorio`, servizi `assistente` e `test` con profilo `test`).
 - Test in `tests/`; `tests/fakes.py` contiene il modello finto `ScriptedModel`.
 - Ambiente locale: `py -3.13 -m venv .venv`, poi `.\.venv\Scripts\Activate.ps1` e
   `python -m pip install -r requirements-dev.txt`.
-- Test: `python -m pytest`. La suite deve passare sia su Python 3.13 (venv locale) sia su
-  Python 3.14 (Docker).
+- Test: `python -m pytest` (Python 3.13, venv locale) e
+  `docker compose --profile test run --rm --build test` (Python 3.14). La suite deve passare su
+  entrambe le versioni.
+- Prove reali con LM Studio: `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v`.
 
 ## Metodo: Superpowers
 - Usare le skill di Superpowers per brainstorming, specifica, piano, implementazione e verifica.

@@ -80,10 +80,38 @@ Con `LOG_LEVEL=WARNING` queste righe non compaiono. Se in una stessa domanda il 
 chiedere strumenti oltre `MAX_TOOL_STEPS` giri, il grafo si ferma, registra un WARNING e risponde
 «Mi fermo: ho raggiunto il limite di N passaggi con gli strumenti…».
 
+## Docker Compose
+
+L'immagine usa Python 3.14.9; LM Studio resta sull'host e il container lo raggiunge tramite
+`host.docker.internal` (Compose sostituisce `LMSTUDIO_BASE_URL` del `.env`). Serve il file `.env`
+(vedi Configurazione).
+
+```powershell
+docker compose build
+docker compose run --rm assistente
+```
+
+`run` (non `up`) collega il terminale alla chat. L'immagine dell'applicazione contiene solo il
+pacchetto `assistente` e le dipendenze: niente `.env`, test o `pytest`.
+
+Per controllare che il container raggiunga LM Studio:
+
+```powershell
+docker compose run --rm -T assistente python -c "import os; from assistente.model import list_models; print(list_models(os.environ['LMSTUDIO_BASE_URL']))"
+```
+
+L'elenco deve contenere il modello configurato.
+
 ## Test
 
 ```powershell
 python -m pytest
+```
+
+Gli stessi test su Python 3.14, nel container:
+
+```powershell
+docker compose --profile test run --rm --build test
 ```
 
 I test automatici non richiedono LM Studio: il modello è sostituito da uno stub. Le prove reali
