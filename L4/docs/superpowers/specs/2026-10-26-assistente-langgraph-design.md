@@ -17,7 +17,8 @@ Docker Compose; LM Studio resta sull'host.
   la chiamata a `get_current_time` e la risposta è coerente con l'ora reale di Tokyo.
 - Una domanda successiva che si riferisce alla precedente riceve una risposta che ne tiene conto.
 - Dopo l'uscita e un nuovo avvio la cronologia è vuota.
-- `pytest` passa con LM Studio spento.
+- `pytest` passa con LM Studio spento, sia nel venv locale (Python 3.13) sia nel container
+  (Python 3.14).
 - La prova reale con LM Studio (`google/gemma-4-e2b`) dimostra almeno una chiamata effettiva
   allo strumento.
 
@@ -48,10 +49,30 @@ cronologia, streaming delle risposte.
 | Container | `Dockerfile` + `compose.yaml`; LM Studio non containerizzato |
 
 Tutte le dipendenze hanno versione fissata (`==`) in `requirements.txt` / `requirements-dev.txt`,
-scelte tra le ultime stabili compatibili con Python 3.13 e 3.14. Approccio scartato:
+scelte tra le ultime stabili compatibili con Python 3.13 e 3.14 (vedi §3.1). Approccio scartato:
 `create_react_agent` di LangGraph, perché nasconde la struttura del grafo. Scartato anche l'uso
 diretto dell'SDK `openai`, che richiederebbe più codice e allontanerebbe dall'ecosistema LangChain
 usato nelle lezioni successive.
+
+### 3.1 Compatibilità Python 3.13 (locale) e 3.14 (Docker)
+
+Le due versioni possono comportarsi in modo diverso; il codice deve funzionare su entrambe e
+questo va verificato, non presunto.
+
+- **Codice:** solo sintassi e API disponibili in 3.13 e non deprecate/rimosse in 3.14. Vietati
+  template string (`t"..."`), `except A, B:` senza parentesi, `annotationlib` e ogni
+  introspezione manuale delle annotazioni.
+- **Annotazioni (PEP 649):** in 3.14 la valutazione è differita e `@tool` ricava lo schema dalla
+  firma; un test controlla lo schema JSON generato per `get_current_time` (nome, parametro
+  `timezone` opzionale di tipo stringa), così una differenza tra le versioni emerge subito.
+- **Dipendenze:** prima di fissare una versione si verifica che esistano wheel binarie per
+  cp313 e cp314 (`pip download --only-binary=:all: --python-version 3.14 ...`), soprattutto per i
+  pacchetti compilati (es. `pydantic-core`).
+- **Test su entrambe:** la suite automatica gira nel venv locale (3.13) e nel container (3.14)
+  tramite il target `test` del `Dockerfile` (§10). Un incremento è completo solo se passa su
+  entrambe.
+- **Ambienti allineati:** si confronta `pip freeze` del venv e del container; versioni transitive
+  diverse vanno spiegate o fissate.
 
 ## 4. Struttura dei file
 
@@ -170,14 +191,22 @@ limite → END
 
 ## 10. Docker
 
-- `Dockerfile`: base `python:3.14-slim`, fissata in implementazione all'ultima patch 3.14
-  disponibile sul registro. Installa prima `requirements.txt`, poi copia `assistente/`.
-  `PYTHONUNBUFFERED=1`, utente non root, `CMD ["python", "-m", "assistente"]`.
-- `compose.yaml`: servizio `assistente` con `build: .`, `env_file: .env`,
-  `environment: LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1` (sostituisce il valore
-  locale), `extra_hosts: ["host.docker.internal:host-gateway"]`, `stdin_open: true`, `tty: true`.
+- `Dockerfile` multi-stage, base `python:3.14-slim`, fissata in implementazione all'ultima patch
+  3.14 disponibile sul registro:
+  - target `app` (predefinito, ultimo stage): installa prima `requirements.txt`, poi copia
+    `assistente/`; `PYTHONUNBUFFERED=1`, utente non root, `CMD ["python", "-m", "assistente"]`.
+    Non contiene `pytest` né i test.
+  - target `test`: parte dalle dipendenze dell'app, aggiunge `requirements-dev.txt`, `tests/` e
+    `pytest.ini`; `CMD ["python", "-m", "pytest"]`.
+- `compose.yaml`:
+  - servizio `assistente` (target `app`) con `env_file: .env`,
+    `environment: LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1` (sostituisce il valore
+    locale), `extra_hosts: ["host.docker.internal:host-gateway"]`, `stdin_open: true`, `tty: true`;
+  - servizio `test` (target `test`, `profiles: ["test"]`), così non parte con i comandi normali.
 - Avvio: `docker compose build` e `docker compose run --rm assistente`.
-- `.dockerignore`: `.env`, `.venv`, `__pycache__`, `tests`, `docs`, `.git`.
+- Test su 3.14: `docker compose --profile test run --rm --build test`.
+- `.dockerignore`: `.env`, `.venv`, `__pycache__`, `.pytest_cache`, `docs`, `.git` (`tests/`
+  resta nel contesto di build perché serve al target `test`, ma non viene copiato nel target `app`).
 - Rischio: se LM Studio ascolta solo su `127.0.0.1` il container potrebbe non raggiungerlo; il
   README spiega come attivare «Serve on Local Network» e come verificare la connessione dal
   container.
@@ -186,10 +215,11 @@ limite → END
 
 ### Automatici (senza modello)
 
-Eseguiti con `python -m pytest` nel venv locale; i test d'integrazione sono saltati.
+Eseguiti con `python -m pytest` nel venv locale (3.13) e con
+`docker compose --profile test run --rm --build test` (3.14); i test d'integrazione sono saltati.
 
 - `test_tools.py`: istante fisso → ora corretta per `Asia/Tokyo`; argomento assente → fuso
-  predefinito; fuso non valido → testo d'errore.
+  predefinito; fuso non valido → testo d'errore; schema JSON dello strumento come atteso.
 - `test_config.py`: variabili obbligatorie mancanti → errore che le nomina; valori predefiniti;
   `MAX_TOOL_STEPS` e `DEFAULT_TIMEZONE` non validi → errore.
 - `test_graph.py` (modello stub con risposte preparate):
