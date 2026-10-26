@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 from dotenv import find_dotenv, load_dotenv
 
+from assistente.tools import canonical_timezone
+
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
 
@@ -18,6 +20,8 @@ class Settings:
     base_url: str
     model: str
     log_level: str = "INFO"
+    default_timezone: str = "Europe/Rome"
+    max_tool_steps: int = 3
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
@@ -40,6 +44,25 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     if log_level not in LOG_LEVELS:
         problems.append(f"LOG_LEVEL non valido: '{log_level}' (ammessi: {', '.join(LOG_LEVELS)})")
 
+    raw_timezone = value("DEFAULT_TIMEZONE") or "Europe/Rome"
+    default_timezone = canonical_timezone(raw_timezone)
+    if default_timezone is None:
+        problems.append(f"DEFAULT_TIMEZONE non valido: '{raw_timezone}' (usa un nome IANA come 'Europe/Rome')")
+
+    raw_steps = value("MAX_TOOL_STEPS") or "3"
+    try:
+        max_tool_steps = int(raw_steps)
+    except ValueError:
+        max_tool_steps = 0
+    if max_tool_steps < 1:
+        problems.append(f"MAX_TOOL_STEPS non valido: '{raw_steps}' (serve un intero maggiore o uguale a 1)")
+
     if problems:
         raise ConfigError("; ".join(problems))
-    return Settings(base_url=base_url, model=model, log_level=log_level)
+    return Settings(
+        base_url=base_url,
+        model=model,
+        log_level=log_level,
+        default_timezone=default_timezone,
+        max_tool_steps=max_tool_steps,
+    )

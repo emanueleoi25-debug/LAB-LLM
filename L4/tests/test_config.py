@@ -38,3 +38,20 @@ def test_environment_wins_over_dotenv(tmp_path, monkeypatch):
     monkeypatch.delenv("LMSTUDIO_BASE_URL")
     s = load_settings()
     assert (s.base_url, s.model) == ("http://file/v1", "dall-ambiente")
+
+
+def test_tool_defaults():
+    s = load_settings(BASE)
+    assert (s.default_timezone, s.max_tool_steps) == ("Europe/Rome", 3)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "tre"])
+def test_invalid_max_tool_steps(value):
+    with pytest.raises(ConfigError, match="MAX_TOOL_STEPS"):
+        load_settings({**BASE, "MAX_TOOL_STEPS": value})
+
+
+def test_default_timezone_is_validated_and_canonical():
+    assert load_settings({**BASE, "DEFAULT_TIMEZONE": "europe/rome"}).default_timezone == "Europe/Rome"
+    with pytest.raises(ConfigError, match="DEFAULT_TIMEZONE"):
+        load_settings({**BASE, "DEFAULT_TIMEZONE": "Marte/Base"})
