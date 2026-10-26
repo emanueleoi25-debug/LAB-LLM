@@ -29,9 +29,15 @@ cronologia, streaming delle risposte.
 
 ## 2. Contesto e posizione
 
-- La radice del progetto è `Es.1/L4` (la cartella che `CLAUDE.md` chiama `assistente-laboratorio/`).
-- Spec e piano stanno in `L4/docs/superpowers/specs/` e `L4/docs/superpowers/plans/`; ogni piano
-  approvato viene inoltre aggiunto a `Es.1/plan.md`.
+- La radice del progetto è `Es.1/L4`: tutti i percorsi di questa spec sono relativi a essa e
+  ogni comando si esegue da lì.
+- Spec e piano stanno in `Es.1/L4/docs/superpowers/specs/` e `Es.1/L4/docs/superpowers/plans/`;
+  ogni piano approvato viene inoltre aggiunto a `Es.1/plan.md`.
+- Il percorso assoluto contiene spazi e punti (`...\Road to 10k\LLM\Es.1\L4`). Per evitare
+  problemi: i nomi interni al progetto (pacchetto, file, servizi, immagini) usano solo minuscole,
+  cifre, `-` e `_`; il progetto Compose ha un nome esplicito (`name: assistente-laboratorio`) invece
+  di essere ricavato dal nome della cartella; i comandi documentati usano percorsi relativi a
+  `Es.1/L4` e, quando serve un percorso assoluto, lo racchiudono tra virgolette.
 - Le altre lezioni (`L3/`) non vengono lette né modificate.
 - Stato iniziale: `L4/` contiene solo `CLAUDE.md` (non tracciato); `L4/main.py` (vuoto in HEAD)
   risulta cancellato e non in stage; nessun `.gitignore` alla radice della repository.
@@ -198,7 +204,7 @@ limite → END
     Non contiene `pytest` né i test.
   - target `test`: parte dalle dipendenze dell'app, aggiunge `requirements-dev.txt`, `tests/` e
     `pytest.ini`; `CMD ["python", "-m", "pytest"]`.
-- `compose.yaml`:
+- `compose.yaml` con `name: assistente-laboratorio`:
   - servizio `assistente` (target `app`) con `env_file: .env`,
     `environment: LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1` (sostituisce il valore
     locale), `extra_hosts: ["host.docker.internal:host-gateway"]`, `stdin_open: true`, `tty: true`;
