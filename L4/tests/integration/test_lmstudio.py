@@ -3,11 +3,11 @@
 import os
 
 import pytest
+from langchain_core.messages import ToolMessage
 
-from assistente.cli import ask, new_history
+from assistente.cli import ask, create_graph, new_history
 from assistente.config import load_settings
-from assistente.graph import build_graph
-from assistente.model import check_model, create_chat_model
+from assistente.model import check_model
 
 pytestmark = [
     pytest.mark.lmstudio,
@@ -22,7 +22,7 @@ pytestmark = [
 def graph():
     settings = load_settings()
     check_model(settings)
-    return build_graph(create_chat_model(settings))
+    return create_graph(settings)
 
 
 def test_real_model_answers(graph):
@@ -34,3 +34,9 @@ def test_real_model_remembers_previous_turn(graph):
     history, _ = ask(graph, new_history(), "Ricorda il numero 47. Rispondi solo: ok")
     _, reply = ask(graph, history, "Quale numero ti ho chiesto di ricordare?")
     assert "47" in reply
+
+
+def test_real_model_uses_clock_tool(graph):
+    history, reply = ask(graph, new_history(), "Che ore sono adesso a Tokyo?")
+    assert any(isinstance(m, ToolMessage) and m.name == "get_current_time" for m in history)
+    assert reply.strip()
