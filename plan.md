@@ -100,11 +100,11 @@ docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "${PWD}:/app" -w /app python:3.1
     risposta successiva; se la risposta è un'eccezione la solleva; a risposte esaurite solleva
     `AssertionError`.
 
-- [ ] **Step 1: Pulizia e `.gitignore`**
+- [x] **Step 1: Pulizia e `.gitignore`**
 
 `git rm main.py`. Crea `.gitignore` con: `.env`, `.venv/`, `__pycache__/`, `.pytest_cache/`, `*.pyc`.
 
-- [ ] **Step 2: Crea il venv 3.13**
+- [x] **Step 2: Crea il venv 3.13**
 
 ```powershell
 py -3.13 -m venv .venv
@@ -113,7 +113,7 @@ python --version
 ```
 Expected: `Python 3.13.x`
 
-- [ ] **Step 3: Scegli e verifica le versioni**
+- [x] **Step 3: Scegli e verifica le versioni**
 
 Per `langgraph`, `langchain-core` e `pytest` scegli l'ultima versione stabile
 (`python -m pip index versions <pacchetto>`). Scrivi `requirements.txt` (`langgraph==…`,
@@ -126,7 +126,7 @@ Expected: entrambi i comandi terminano senza errori. Se manca una wheel cp314, s
 più recente che le ha tutte. Nello stesso modo, nei Task 4 e 5, si aggiungono `langchain-openai`,
 `python-dotenv` e `tzdata`.
 
-- [ ] **Step 4: Fissa l'immagine 3.14**
+- [x] **Step 4: Fissa l'immagine 3.14**
 
 ```powershell
 docker pull python:3.14-slim
@@ -134,7 +134,7 @@ docker run --rm python:3.14-slim python --version
 ```
 Annota `3.14.<patch>`: lo userai nella verifica ad hoc e nel `Dockerfile` (Task 7).
 
-- [ ] **Step 5: `pytest.ini`**
+- [x] **Step 5: `pytest.ini`**
 
 ```ini
 [pytest]
@@ -145,7 +145,7 @@ markers =
     lmstudio: prove reali che richiedono LM Studio attivo (RUN_LMSTUDIO_TESTS=1)
 ```
 
-- [ ] **Step 6: Scrivi i test che falliscono**
+- [x] **Step 6: Scrivi i test che falliscono**
 
 `tests/test_graph.py`:
 ```python
@@ -171,22 +171,22 @@ def test_fixed_reply_model_returns_constant():
     assert isinstance(reply, AIMessage) and reply.content == FIXED_REPLY
 ```
 
-- [ ] **Step 7: Verifica che falliscano**
+- [x] **Step 7: Verifica che falliscano**
 
 Run: `python -m pytest -v`
 Expected: FAIL per `ModuleNotFoundError: assistente.graph` / `assistente.model`.
 
-- [ ] **Step 8: Implementa `graph.py`, `model.py` e `tests/fakes.py`**
+- [x] **Step 8: Implementa `graph.py`, `model.py` e `tests/fakes.py`**
 
 `FIXED_REPLY = "Risposta fissa: il collegamento al modello arriverà nel prossimo incremento."`
 Il nodo `modello` restituisce `{"messages": [model.invoke(state["messages"])]}`.
 
-- [ ] **Step 9: Verifica su 3.13 e 3.14**
+- [x] **Step 9: Verifica su 3.13 e 3.14**
 
 Run: `python -m pytest -v` e la verifica ad hoc su 3.14.
 Expected: 4 passed in entrambi.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```powershell
 git add .gitignore requirements.txt requirements-dev.txt pytest.ini assistente tests
@@ -212,7 +212,7 @@ git commit -m "feat(grafo): crea il grafo minimo con risposta fissa"
   - `configure_logging(level: str) -> None`
   - `main() -> int`; `__main__.py` esegue `raise SystemExit(main())`
 
-- [ ] **Step 1: Scrivi i test che falliscono**
+- [x] **Step 1: Scrivi i test che falliscono**
 
 In `tests/test_cli.py`, `inputs(*lines)` restituisce una `input_fn` che fornisce le righe in
 ordine e poi solleva `EOFError`.
@@ -244,12 +244,12 @@ def test_empty_reply_prints_placeholder():  # AIMessage("") → "Assistente> (ne
 def test_ctrl_c_while_waiting_exits_cleanly():  # ScriptedModel([KeyboardInterrupt()]) → run_chat ritorna
 ```
 
-- [ ] **Step 2: Verifica che falliscano**
+- [x] **Step 2: Verifica che falliscano**
 
 Run: `python -m pytest tests/test_cli.py -v`
 Expected: FAIL con `ModuleNotFoundError: assistente.cli`.
 
-- [ ] **Step 3: Implementa `cli.py` e `__main__.py`**
+- [x] **Step 3: Implementa `cli.py` e `__main__.py`**
 
 `SYSTEM_PROMPT = "Sei l'assistente del laboratorio. Rispondi in italiano, in modo breve e chiaro."`
 Le parole d'uscita si confrontano dopo `strip().lower()`. Un'uscita, sia per parola sia per
@@ -258,24 +258,24 @@ EOF/Ctrl+C, stampa `Arrivederci.` su `output`. `configure_logging` usa
 Constraints e porta `httpx`, `httpcore`, `openai` a WARNING. Per ora `main()` fa
 `configure_logging("INFO")`, `run_chat(build_graph(FixedReplyModel()))` e `return 0`.
 
-- [ ] **Step 4: Verifica su 3.13 e 3.14**
+- [x] **Step 4: Verifica su 3.13 e 3.14**
 
 Run: `python -m pytest -v` e la verifica ad hoc su 3.14.
 Expected: tutti passed.
 
-- [ ] **Step 5: Prova manuale (senza modello)**
+- [x] **Step 5: Prova manuale (senza modello)**
 
 `python -m assistente`, scrivi `ciao` e poi `esci`.
 Expected: `Assistente> Risposta fissa: …`, poi `Arrivederci.`, poi ritorno al prompt di PowerShell.
 
-- [ ] **Step 6: README e CLAUDE.md**
+- [x] **Step 6: README e CLAUDE.md**
 
 README: scopo, requisiti (Python 3.13 locale, Docker Desktop, LM Studio), preparazione del venv
 (comandi degli Step 2 e 3 del Task 1), avvio `python -m assistente`, test `python -m pytest`.
 CLAUDE.md: nuova sezione «Struttura e comandi» con i moduli di `assistente/`, il comando dei test
 e la regola «suite verde su 3.13 e 3.14».
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add assistente/cli.py assistente/__main__.py tests/test_cli.py
@@ -304,7 +304,7 @@ git commit -m "docs: documenta avvio e test del primo incremento"
     ripuliti con `strip()`; un valore vuoto conta come mancante. Tutti gli errori sono raccolti in un
     unico `ConfigError` che nomina ogni variabile coinvolta.
 
-- [ ] **Step 1: Scrivi i test che falliscono**
+- [x] **Step 1: Scrivi i test che falliscono**
 
 ```python
 BASE = {"LMSTUDIO_BASE_URL": "http://localhost:1234/v1", "LMSTUDIO_MODEL": "google/gemma-4-e2b"}
@@ -335,13 +335,13 @@ def test_environment_wins_over_dotenv(tmp_path, monkeypatch):
 ```
 `LOG_LEVEL` accetta `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
 
-- [ ] **Step 2: Verifica che falliscano** — `python -m pytest tests/test_config.py -v` → FAIL (modulo mancante)
+- [x] **Step 2: Verifica che falliscano** — `python -m pytest tests/test_config.py -v` → FAIL (modulo mancante)
 
-- [ ] **Step 3: Implementa `config.py`** e crea `.env.example` con `LMSTUDIO_BASE_URL=http://localhost:1234/v1`, `LMSTUDIO_MODEL=google/gemma-4-e2b`, `LOG_LEVEL=INFO`
+- [x] **Step 3: Implementa `config.py`** e crea `.env.example` con `LMSTUDIO_BASE_URL=http://localhost:1234/v1`, `LMSTUDIO_MODEL=google/gemma-4-e2b`, `LOG_LEVEL=INFO`
 
-- [ ] **Step 4: Verifica su 3.13 e 3.14** — tutti passed
+- [x] **Step 4: Verifica su 3.13 e 3.14** — tutti passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add assistente/config.py tests/test_config.py .env.example requirements.txt
@@ -368,7 +368,7 @@ git commit -m "feat(config): legge la configurazione da variabili d'ambiente"
     `ChatOpenAI(base_url=settings.base_url, api_key=API_KEY, model=settings.model)` e, se ci sono
     strumenti, applica `.bind_tools(tools)`
 
-- [ ] **Step 1: Scrivi i test che falliscono (senza modello)**
+- [x] **Step 1: Scrivi i test che falliscono (senza modello)**
 
 `tests/test_model.py` (elimina il test della risposta fissa). L'helper `settings(**overrides)`
 crea `Settings(base_url="http://localhost:1234/v1", model="google/gemma-4-e2b")` con le sostituzioni indicate:
@@ -412,9 +412,9 @@ def test_main_fails_with_missing_config(tmp_path, monkeypatch, capsys):
     assert "LMSTUDIO_BASE_URL" in capsys.readouterr().err
 ```
 
-- [ ] **Step 2: Verifica che falliscano** — `python -m pytest -v` → FAIL sui test nuovi
+- [x] **Step 2: Verifica che falliscano** — `python -m pytest -v` → FAIL sui test nuovi
 
-- [ ] **Step 3: Implementa**
+- [x] **Step 3: Implementa**
 
 - `run_chat` intercetta `openai.APIError`, che comprende anche `APIConnectionError`, scrive su
   `errors` `Errore: il modello non ha risposto ({exc}). Domanda scartata, riprova.` e lascia la
@@ -428,9 +428,9 @@ def test_main_fails_with_missing_config(tmp_path, monkeypatch, capsys):
   - server irraggiungibile: `LM Studio non raggiungibile a {base_url}: avvia il server o controlla LMSTUDIO_BASE_URL.`
   - modello assente: `Modello '{model}' non disponibile su {base_url}. Modelli disponibili: {elenco}.`
 
-- [ ] **Step 4: Verifica su 3.13 e 3.14** — tutti passed
+- [x] **Step 4: Verifica su 3.13 e 3.14** — tutti passed
 
-- [ ] **Step 5: Prove reali con LM Studio (test)**
+- [x] **Step 5: Prove reali con LM Studio (test)**
 
 In `tests/integration/test_lmstudio.py` imposta `pytestmark = [pytest.mark.lmstudio, pytest.mark.skipif(os.environ.get("RUN_LMSTUDIO_TESTS") != "1", reason="prova reale: imposta RUN_LMSTUDIO_TESTS=1")]`.
 La fixture `graph` esegue `load_settings()`, poi `check_model(settings)`, poi
@@ -451,16 +451,16 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
 ```
 Expected: 2 passed. Senza la variabile: 2 skipped.
 
-- [ ] **Step 6: Prove manuali con LM Studio**
+- [x] **Step 6: Prove manuali con LM Studio**
 
 1. `python -m assistente` con LM Studio attivo: una domanda riceve una risposta reale, e una
    domanda successiva che rimanda alla prima ne tiene conto.
 2. Server LM Studio fermo: esce con codice 1 e il messaggio «LM Studio non raggiungibile…».
 3. `LMSTUDIO_MODEL=inventato` nel `.env`: esce con codice 1 ed elenca i modelli disponibili.
 
-- [ ] **Step 7: README** — configurazione (`Copy-Item .env.example .env`), avvio del server di LM Studio, controllo all'avvio, prove reali (comando dello Step 5)
+- [x] **Step 7: README** — configurazione (`Copy-Item .env.example .env`), avvio del server di LM Studio, controllo all'avvio, prove reali (comando dello Step 5)
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add assistente/model.py assistente/cli.py tests/test_model.py tests/test_cli.py requirements.txt
@@ -494,7 +494,7 @@ git commit -m "docs: documenta configurazione e prove con LM Studio"
     Descrizione: `"Restituisce la data e l'ora attuali. Parametro timezone: nome IANA del fuso orario, ad esempio 'Asia/Tokyo'. Se omesso usa il fuso predefinito."`
   - `Settings` acquista i campi `default_timezone: str = "Europe/Rome"` e `max_tool_steps: int = 3`
 
-- [ ] **Step 1: Scrivi i test che falliscono**
+- [x] **Step 1: Scrivi i test che falliscono**
 
 ```python
 NOW = datetime(2026, 10, 26, 16, 5, tzinfo=timezone.utc)
@@ -543,17 +543,17 @@ def test_default_timezone_is_validated_and_canonical():
         load_settings({**BASE, "DEFAULT_TIMEZONE": "Marte/Base"})
 ```
 
-- [ ] **Step 2: Verifica che falliscano** — FAIL (modulo `assistente.tools` mancante, campi assenti)
+- [x] **Step 2: Verifica che falliscano** — FAIL (modulo `assistente.tools` mancante, campi assenti)
 
-- [ ] **Step 3: Implementa `tools.py` ed estendi `config.py`**
+- [x] **Step 3: Implementa `tools.py` ed estendi `config.py`**
 
 `current_time` formatta l'ora con `now.astimezone(ZoneInfo(nome)).isoformat(timespec="seconds")`
 seguita da ` (nome)`. `config.py` usa `canonical_timezone` per validare `DEFAULT_TIMEZONE`.
 Aggiungi `DEFAULT_TIMEZONE=Europe/Rome` e `MAX_TOOL_STEPS=3` a `.env.example`.
 
-- [ ] **Step 4: Verifica su 3.13 e 3.14** — tutti passed. Su 3.14 il `test_tool_schema` controlla la differenza di comportamento delle annotazioni (PEP 649).
+- [x] **Step 4: Verifica su 3.13 e 3.14** — tutti passed. Su 3.14 il `test_tool_schema` controlla la differenza di comportamento delle annotazioni (PEP 649).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add assistente/tools.py assistente/config.py tests/test_tools.py tests/test_config.py .env.example requirements.txt
@@ -577,7 +577,7 @@ git commit -m "feat(strumenti): aggiunge l'orologio con fuso orario esplicito"
   - logger `logging.getLogger("assistente.graph")`
   - ogni `ToolMessage` prodotta ha `name=<nome strumento>` e il `tool_call_id` della chiamata
 
-- [ ] **Step 1: Scrivi i test che falliscono**
+- [x] **Step 1: Scrivi i test che falliscono**
 
 `call(name, args, id)` costruisce un dizionario `tool_call`; `clock = make_clock_tool("Europe/Rome", clock=lambda: NOW)`.
 ```python
@@ -625,9 +625,9 @@ def test_create_chat_model_binds_clock_tool():
     assert bound.kwargs["tools"][0]["function"]["name"] == "get_current_time"
 ```
 
-- [ ] **Step 2: Verifica che falliscano** — FAIL (nuovi nodi e costanti assenti)
+- [x] **Step 2: Verifica che falliscano** — FAIL (nuovi nodi e costanti assenti)
 
-- [ ] **Step 3: Implementa**
+- [x] **Step 3: Implementa**
 
 - Nodo `strumenti`:
   - per ogni chiamata registra `logger.info("strumento richiesto: %s %s", name, args)`;
@@ -642,9 +642,9 @@ def test_create_chat_model_binds_clock_tool():
 - In `main` crea `tools = [make_clock_tool(settings.default_timezone)]`, poi
   `build_graph(create_chat_model(settings, tools), tools, settings.max_tool_steps)`.
 
-- [ ] **Step 4: Verifica su 3.13 e 3.14** — tutti passed
+- [x] **Step 4: Verifica su 3.13 e 3.14** — tutti passed
 
-- [ ] **Step 5: Prova reale con LM Studio (test)**
+- [x] **Step 5: Prova reale con LM Studio (test)**
 
 ```python
 def test_real_model_uses_clock_tool(graph):
@@ -656,7 +656,7 @@ La fixture `graph` ora usa gli strumenti, come `main`. Run: il comando del Task 
 Se `google/gemma-4-e2b` non chiama lo strumento, **non** si cambia il modello né il prompt di
 nascosto: si riporta l'esito e si decide insieme.
 
-- [ ] **Step 6: Prova manuale con LM Studio**
+- [x] **Step 6: Prova manuale con LM Studio**
 
 `python -m assistente`:
 1. «Che ore sono a Tokyo?»: su stderr compaiono `strumento richiesto: get_current_time …` e
@@ -664,9 +664,9 @@ nascosto: si riporta l'esito e si decide insieme.
 2. «E a Roma?»: il modello usa di nuovo lo strumento e il contesto della domanda precedente.
 3. Con `LOG_LEVEL=WARNING` le righe dello strumento non compaiono più.
 
-- [ ] **Step 7: README** — strumento orologio, formato dei log, `LOG_LEVEL`, `MAX_TOOL_STEPS` e comportamento al limite
+- [x] **Step 7: README** — strumento orologio, formato dei log, `LOG_LEVEL`, `MAX_TOOL_STEPS` e comportamento al limite
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add assistente/graph.py assistente/cli.py tests/test_graph.py tests/test_model.py
@@ -690,7 +690,7 @@ git commit -m "docs: documenta orologio, log e limite di passaggi"
 **Interfaces:**
 - Consumes: `python -m assistente`, `python -m pytest`, `assistente.model.list_models`
 
-- [ ] **Step 1: `Dockerfile` multi-stage**
+- [x] **Step 1: `Dockerfile` multi-stage**
 
 Stage `base` (`python:3.14.<patch>-slim`, tag del Task 1 Step 4): `PYTHONUNBUFFERED=1`,
 `PYTHONDONTWRITEBYTECODE=1`, `WORKDIR /app`, copia `requirements.txt`, poi
@@ -700,14 +700,14 @@ Stage `test` (da `base`): installa `requirements-dev.txt`, copia `pytest.ini`, `
 Stage `app` (da `base`, **ultimo**, quindi predefinito): copia `assistente/`, crea un utente non
 root e lo usa, `CMD ["python", "-m", "assistente"]`.
 
-- [ ] **Step 2: `compose.yaml` e `.dockerignore`**
+- [x] **Step 2: `compose.yaml` e `.dockerignore`**
 
 Valori della spec §10: `name: assistente-laboratorio`; servizio `assistente` (`target: app`, `env_file: .env`,
 `LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1`, `extra_hosts`, `stdin_open`, `tty`);
 servizio `test` (`target: test`, `profiles: ["test"]`).
 `.dockerignore`: `.env`, `.venv`, `__pycache__`, `.pytest_cache`, `docs`, `.git`.
 
-- [ ] **Step 3: Verifiche senza modello (Docker attivo)**
+- [x] **Step 3: Verifiche senza modello (Docker attivo)**
 
 ```powershell
 docker compose config --quiet
@@ -725,7 +725,7 @@ Expected, nell'ordine:
 - `import pytest` fallisce con `ModuleNotFoundError`;
 - `/app` contiene solo `assistente` e `requirements.txt`, senza `.env` né `tests`.
 
-- [ ] **Step 4: Prova con Docker e LM Studio**
+- [x] **Step 4: Prova con Docker e LM Studio**
 
 ```powershell
 docker compose run --rm assistente python -c "import os; from assistente.model import list_models; print(list_models(os.environ['LMSTUDIO_BASE_URL']))"
@@ -733,12 +733,12 @@ docker compose run --rm assistente python -c "import os; from assistente.model i
 Expected: l'elenco contiene `google/gemma-4-e2b`. Se il container non raggiunge LM Studio, attiva
 «Serve on Local Network» in LM Studio, ripeti il comando e annota l'esito nel README.
 
-- [ ] **Step 5: README e CLAUDE.md**
+- [x] **Step 5: README e CLAUDE.md**
 
 README: sezione Docker con i comandi dello Step 3 effettivamente verificati e la diagnosi dello Step 4.
 CLAUDE.md: comando dei test su 3.14, che sostituisce quello ad hoc.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add Dockerfile compose.yaml .dockerignore
@@ -756,12 +756,12 @@ git commit -m "docs: documenta avvio e test con Docker"
 **Files:**
 - Modify: `README.md` (diagnosi e checklist definitiva)
 
-- [ ] **Step 1: Suite senza modello su entrambe le versioni**
+- [x] **Step 1: Suite senza modello su entrambe le versioni**
 
 `python -m pytest -v` e `docker compose --profile test run --rm --build test` → tutti passed,
 `lmstudio` skipped.
 
-- [ ] **Step 2: Allineamento delle dipendenze**
+- [x] **Step 2: Allineamento delle dipendenze**
 
 ```powershell
 python -m pip freeze > "$env:TEMP\freeze-313.txt"
@@ -772,9 +772,9 @@ Expected: le uniche differenze sono le dipendenze di sviluppo (`pytest`, `pluggy
 e quelle solo per Windows (`colorama`). Ogni altra differenza va spiegata, oppure la versione
 corrispondente va fissata in `requirements.txt`.
 
-- [ ] **Step 3: Prove reali con LM Studio** — comando del Task 4 Step 5 → 3 passed
+- [x] **Step 3: Prove reali con LM Studio** — comando del Task 4 Step 5 → 3 passed
 
-- [ ] **Step 4: Checklist manuale in Docker (spec §11)**
+- [x] **Step 4: Checklist manuale in Docker (spec §11)**
 
 `docker compose run --rm assistente`:
 1. «Che ore sono a Tokyo?»: compare il log della chiamata e la risposta è coerente.
@@ -782,13 +782,13 @@ corrispondente va fissata in `requirements.txt`.
 3. `esci`, poi un nuovo avvio e «Quale città ti ho chiesto prima?»: il modello non lo sa.
 4. LM Studio fermo: il messaggio di errore è chiaro e l'uscita avviene con codice 1.
 
-- [ ] **Step 5: README definitivo**
+- [x] **Step 5: README definitivo**
 
 Sezione «Diagnosi»: LM Studio non raggiungibile in locale e da Docker, modello non disponibile,
 variabile mancante, fuso orario non valido. Rileggi il README e tieni solo comandi eseguiti in
 questo piano.
 
-- [ ] **Step 6: Commit e resoconto**
+- [x] **Step 6: Commit e resoconto**
 
 ```powershell
 git add README.md
