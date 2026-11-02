@@ -35,7 +35,7 @@ Le variabili d'ambiente hanno la precedenza su `.env`, che resta fuori da Git.
 |---|---|---|---|
 | `LMSTUDIO_BASE_URL` | sì | — | indirizzo dell'API di LM Studio, es. `http://localhost:1234/v1` |
 | `LMSTUDIO_MODEL` | sì | — | identificativo del modello come restituito da `GET /v1/models` |
-| `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non ne indica uno (nome IANA) |
+| `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non indica una città (nome IANA) |
 | `MAX_TOOL_STEPS` | no | `3` | giri modello→strumenti consentiti per ogni domanda (intero ≥ 1) |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 
@@ -62,18 +62,38 @@ e si può riprovare.
 
 ## Strumento orologio, log e limite di passaggi
 
-Il modello può chiedere lo strumento `get_current_time(timezone)`. `timezone` è un nome IANA
-(es. `Asia/Tokyo`, maiuscole e minuscole indifferenti); se manca si usa `DEFAULT_TIMEZONE`. Il
-risultato riporta sempre il fuso, es. `2026-10-27T01:37:30+09:00 (Asia/Tokyo)`. Un fuso
-sconosciuto produce un messaggio d'errore che torna al modello, senza interrompere la sessione.
+Il modello può chiedere lo strumento `get_current_time(city)`. `city` è il nome della città come
+l'ha scritto l'utente (es. `Miami`, `Nuova York`, `Pechino`); il programma ne trova il fuso in un
+archivio locale (`geonamescache`, città con almeno 5.000 abitanti, nessun accesso alla rete).
+Maiuscole e spazi sono indifferenti, tra omonimi vince la città più popolosa e una parte dopo la
+virgola viene ignorata se serve (`Miami, Florida`). È accettato anche un nome IANA (`Asia/Tokyo`).
+
+Il risultato dichiara sempre che cosa è stato usato:
+
+| Caso | Esempio di risultato |
+|---|---|
+| città trovata | `2026-11-02T04:09:01-05:00 (Miami, US, fuso America/New_York)` |
+| nome IANA | `2026-10-27T01:05:00+09:00 (fuso Asia/Tokyo)` |
+| nessuna città | `2026-11-02T10:09:45+01:00 (fuso predefinito Europe/Rome)` |
+| città sconosciuta | `Errore: città sconosciuta 'Xyzville'. Indica il nome di una città, ad esempio 'Roma'.` |
+
+Il messaggio d'errore torna al modello, senza interrompere la sessione.
 
 Il grafo esegue lo strumento, restituisce il risultato al modello e ottiene la risposta finale.
-I log vanno su stderr, separati dalle risposte:
+I log vanno su stderr, separati dalle risposte. Le righe `→ modello` mostrano i messaggi nuovi
+inviati al modello (il prompt di sistema solo alla prima domanda), le righe `← modello` che cosa
+ha deciso: chiamata a uno strumento, chiamata non valida o risposta. Gli a capo sono scritti `\n`.
+Esempio dal container (prompt di sistema accorciato):
 
 ```
-2026-10-26 17:37:30,242 INFO assistente.graph: strumento richiesto: get_current_time {'timezone': 'Asia/Tokyo'}
-2026-10-26 17:37:30,244 INFO assistente.graph: risultato strumento: 2026-10-27T01:37:30+09:00 (Asia/Tokyo)
-Assistente> Attualmente sono le ore 01:37:30 del 27 ottobre 2026 a Tokyo.
+2026-11-02 09:08:56,824 INFO assistente.graph: → modello [sistema] Sei l'assistente del laboratorio. …
+2026-11-02 09:08:56,824 INFO assistente.graph: → modello [utente] Che ore sono a Miami?
+2026-11-02 09:09:01,726 INFO assistente.graph: ← modello [chiamata] get_current_time {'city': 'Miami'}
+2026-11-02 09:09:01,728 INFO assistente.graph: strumento richiesto: get_current_time {'city': 'Miami'}
+2026-11-02 09:09:02,911 INFO assistente.graph: risultato strumento: 2026-11-02T04:09:01-05:00 (Miami, US, fuso America/New_York)
+2026-11-02 09:09:02,913 INFO assistente.graph: → modello [strumento get_current_time] 2026-11-02T04:09:01-05:00 (Miami, US, fuso America/New_York)
+2026-11-02 09:09:12,103 INFO assistente.graph: ← modello [risposta] Attualmente sono le 04:09 del 2 novembre 2026 a Miami.
+Assistente> Attualmente sono le 04:09 del 2 novembre 2026 a Miami.
 ```
 
 Con `LOG_LEVEL=WARNING` queste righe non compaiono. Se in una stessa domanda il modello continua a
@@ -131,10 +151,15 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
    `docker compose --profile test run --rm --build test` (tutti passed, le prove reali skipped).
 2. Prove reali con LM Studio (comando sopra): risposta, memoria della sessione, uso dell'orologio.
 3. In Docker, `docker compose run --rm assistente`:
-   - «Che ore sono a Tokyo?» → su stderr compare `strumento richiesto: get_current_time …` e la
-     risposta è coerente con l'ora reale;
-   - «Quale città ti ho chiesto prima?» → la risposta cita Tokyo;
-   - `esci`, nuovo avvio e di nuovo «Quale città ti ho chiesto prima?» → il modello non lo sa.
+   - «Che ore sono a Miami?» → su stderr compaiono `← modello [chiamata] get_current_time
+     {'city': 'Miami'}` e un risultato con `America/New_York`; la risposta è coerente con l'ora
+     reale di Miami;
+   - «Quale città ti ho chiesto prima?» → la risposta cita Miami;
+   - `esci`, nuovo avvio e di nuovo «Quale città ti ho chiesto prima?» → il modello non lo sa;
+   - «Che ore sono?» → risultato con `fuso predefinito Europe/Rome`.
+
+Gli esiti delle verifiche eseguite sono in [`docs/registro-test.md`](docs/registro-test.md); le
+correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/registro-modifiche.md).
 
 ## Diagnosi
 
@@ -147,5 +172,8 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
 | `Modello '…' non disponibile su …` (codice 1) | identificativo errato o modello non scaricato | usa uno degli identificativi elencati nel messaggio |
 | `Errore: il modello non ha risposto…` durante la chat | LM Studio fermato o modello scaricato dalla memoria | ricarica il modello e ripeti la domanda: la cronologia è intatta |
 | nessuna riga `strumento richiesto` nei log | `LOG_LEVEL` sopra `INFO`, oppure il modello ha risposto senza usare lo strumento | imposta `LOG_LEVEL=INFO`; riformula chiedendo l'ora attuale |
+| `strumento richiesto: get_current_time {}` seguito da `fuso predefinito` per una domanda su una città | il modello non ha passato la città allo strumento | riformula citando esplicitamente la città, es. «Che ore sono a Miami?» |
+| `risultato strumento: Errore: città sconosciuta '…'` | la città non è nell'archivio (meno di 5.000 abitanti o nome non riconosciuto) | usa il nome di una città vicina più grande, oppure un nome IANA come `America/New_York` |
+| `← modello [chiamata non valida] …` e `Errore: argomenti non validi…` | il modello ha prodotto argomenti non interpretabili | nessuna azione: il modello riceve l'errore e può riprovare entro `MAX_TOOL_STEPS` giri; se si ripete, riformula la domanda |
 
 Nel container i log riportano l'ora in UTC; le risposte dell'orologio usano invece il fuso richiesto.

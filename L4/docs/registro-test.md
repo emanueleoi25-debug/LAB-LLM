@@ -3,7 +3,97 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
-## Sessione del 2026-10-29 — commit `302f4a8`
+## Sessione del 2026-11-02 — commit `5df730f`
+
+Stato dopo l'orologio per città (`8cddce3`) e i log dei messaggi al modello (`5df730f`).
+
+### Riepilogo
+
+| Verifica | Ambiente | Comando | Superati | Non superati | Skipped |
+|---|---|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest -v` | 78 | 0 | 3 |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 78 | 0 | 3 |
+| Prove reali con LM Studio | venv locale, modello `google/gemma-4-e2b` | `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 3 | 0 | 0 |
+| Checklist manuale in Docker | container `assistente` + LM Studio sull'host | `docker compose run --rm -T --build assistente` | 4 | 0 | 0 |
+| Serie di città | venv locale, `python -m assistente`, una sessione per domanda | «Che ore sono a <città>?» | 17 | 0 | 0 |
+
+I 3 skipped delle suite senza modello sono le prove reali, superate nell'esecuzione dedicata.
+Su 3.13 e 3.14 l'esito di ogni singolo test è identico (confronto delle due esecuzioni con `-v`).
+
+### Suite senza modello (3.13 e 3.14)
+
+Per file: `test_cities.py` 13, `test_cli.py` 19, `test_config.py` 10, `test_graph.py` 20,
+`test_model.py` 5, `test_tools.py` 11, tutti superati; `integration/test_lmstudio.py` 3 skipped.
+I test già presenti nella sessione del 2026-10-29 sono tutti superati. Test nuovi o modificati:
+
+| File | Test | Esito |
+|---|---|---|
+| `test_cities.py` | `test_find_city[Miami]`, `[Nuova York]`, `[pechino]`, `[Città del Messico]`, `[Citta del Messico]`, `[  KYOTO ]` | superati |
+| `test_cities.py` | `test_homonyms_pick_most_populous` | superato |
+| `test_cities.py` | `test_country_after_comma_is_ignored[Miami, Florida]`, `[Miami, USA]` | superati |
+| `test_cities.py` | `test_unknown_or_empty_city[Xyzville]`, `[]`, `[   ]`, `[,]` | superati |
+| `test_tools.py` | `test_time_in_city` | superato |
+| `test_tools.py` | `test_iana_name_is_accepted[Asia/Tokyo]`, `[ asia/tokyo ]` | superati |
+| `test_tools.py` | `test_missing_city_uses_default[None]`, `[]`, `[   ]` | superati |
+| `test_tools.py` | `test_unknown_city_returns_error_text[Xyzville]`, `[../etc/passwd]` | superati |
+| `test_tools.py` | `test_tool_uses_injected_clock`, `test_old_timezone_argument_falls_back_to_default`, `test_tool_schema` | superati |
+| `test_graph.py` | `test_model_exchange_is_logged` | superato |
+| `test_graph.py` | `test_system_prompt_logged_only_on_first_question` | superato |
+| `test_graph.py` | `test_newlines_are_escaped_in_logs` | superato |
+| `test_graph.py` | `test_invalid_call_is_logged` | superato |
+| `test_graph.py` | `test_block_content_is_logged_as_text` | superato |
+| `test_cli.py` | `test_system_prompt_mentions_city_parameter` | superato |
+
+I vecchi test sul parametro `timezone` di `test_tools.py` sono stati sostituiti da quelli sopra.
+
+### Prove reali con LM Studio
+
+| Test | Esito |
+|---|---|
+| `test_real_model_answers` | superato |
+| `test_real_model_remembers_previous_turn` | superato |
+| `test_real_model_uses_clock_tool` (ora chiede Miami e verifica `America/New_York`) | superato |
+
+### Checklist manuale in Docker
+
+Domande inviate da stdin, due sessioni, alle 10:09 ora di Roma (04:09 a Miami).
+
+| Passo | Atteso | Osservato | Esito |
+|---|---|---|---|
+| «Che ore sono a Miami?» | chiamata con la città, fuso `America/New_York`, righe `→`/`←` nei log | `← modello [chiamata] get_current_time {'city': 'Miami'}` → `2026-11-02T04:09:01-05:00 (Miami, US, fuso America/New_York)`; «sono le 04:09» | superato |
+| «Quale città ti ho chiesto prima?» | la risposta cita Miami | «Mi hai chiesto le ore a Miami.» | superato |
+| `esci`, nuovo avvio, stessa domanda | il modello non lo sa | «Non mi hai chiesto prima alcuna città.» | superato |
+| «Che ore sono?» | fuso predefinito | `get_current_time {}` → `2026-11-02T10:09:45+01:00 (fuso predefinito Europe/Rome)`; «le ore 10:09:45» | superato |
+
+### Serie di città
+
+Ogni domanda in una sessione nuova, tra le 10:02 e le 10:07 ora di Roma. Ore controllate con
+`zoneinfo` di Python.
+
+| Città | Argomenti dello strumento | Fuso nel risultato | Risposta coerente |
+|---|---|---|---|
+| Miami (5 volte) | `{'city': 'Miami'}` ×5 | `America/New_York` (−05:00) | sì ×5 (04:02–04:03) |
+| Bari | `{'city': 'Bari'}` | `Europe/Rome` | sì |
+| Kyoto | `{'city': 'Kyoto'}` | `Asia/Tokyo` | sì |
+| Pechino | `{'city': 'Pechino'}` | `Asia/Shanghai` (Beijing) | sì |
+| Nuova York | `{'city': 'Nuova York'}` | `America/New_York` (New York City) | sì |
+| Monaco di Baviera | `{'city': 'Monaco di Baviera'}` | `Europe/Berlin` (Munich) | sì |
+| San Francisco | `{'city': 'San Francisco'}` | `America/Los_Angeles` | sì |
+| Buenos Aires | `{'city': 'Buenos Aires'}` | `America/Argentina/Buenos_Aires` | sì |
+| Mumbai | `{'city': 'Mumbai'}` | `Asia/Kolkata` (+05:30) | sì |
+| Dubai | `{'city': 'Dubai'}` | `Asia/Dubai` | sì |
+| Sydney | `{'city': 'Sydney'}` | `Australia/Sydney` (+11:00) | sì |
+| Città del Messico | `{'city': 'Città del Messico'}` | `America/Mexico_City` | sì |
+| Chioggia | `{'city': 'Chioggia'}` | `Europe/Rome` | sì |
+
+Confronto con la sessione di base: Miami passa da 1 risposta giusta su 5 a 5 su 5; Bari ora ha
+la città negli argomenti invece di `{}`.
+
+### Resta da provare
+
+- La checklist da un terminale interattivo vero (`docker compose run --rm assistente`, senza `-T`).
+
+## Sessione del 2026-10-29 — commit `302f4a8` (sessione di base, prima dell'orologio per città)
 
 ### Riepilogo
 
@@ -121,6 +211,18 @@ Domande inviate da stdin (`docker compose run --rm -T assistente`) alle 10:15 or
 | «Che ore sono a Tokyo?» | riga `strumento richiesto: get_current_time …` su stderr, ora coerente | `get_current_time {'timezone': 'Asia/Tokyo'}` → `2026-10-29T18:15:19+09:00`; risposta «le ore 18:15» | superato |
 | «Quale città ti ho chiesto prima?» | la risposta cita Tokyo | «Mi hai chiesto le ore a Tokyo.» | superato |
 | `esci`, nuovo avvio, stessa domanda | il modello non lo sa | «Non mi hai chiesto alcuna città prima in questa conversazione.» | superato |
+
+### Serie di città (prima della modifica)
+
+Strumento con il solo parametro `timezone` (nome IANA), una sessione per domanda.
+
+| Città | Esito |
+|---|---|
+| Miami (5 volte) | 1 risposta giusta su 5; nelle altre 4 il modello ha chiamato `get_current_time {}` e lo strumento ha usato `Europe/Rome` |
+| Bari | chiamata `{}`; risposta giusta solo perché Bari ha lo stesso fuso di Roma |
+| Kyoto, Pechino, Nuova York | fuso corretto |
+
+Questo esito ha motivato l'orologio per città (vedi `registro-modifiche.md`).
 
 ### Resta da provare
 
