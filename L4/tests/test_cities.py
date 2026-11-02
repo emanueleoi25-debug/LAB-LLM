@@ -27,3 +27,20 @@ def test_country_after_comma_is_ignored(name):
 @pytest.mark.parametrize("name", ["Xyzville", "", "   ", ","])
 def test_unknown_or_empty_city(name):
     assert find_city(name) is None
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("Zaragoza", ("Zaragoza", "ES", "Europe/Madrid")),
+    ("Islamabad", ("Islamabad", "PK", "Asia/Karachi")),
+    ("Cancun", ("Cancún", "MX", "America/Cancun")),
+])
+def test_main_name_beats_alternate_name_of_bigger_city(name, expected):
+    assert tuple(find_city(name)) == expected
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("Roma", ("Rome", "IT", "Europe/Rome")),
+    ("Mexico", ("Mexico City", "MX", "America/Mexico_City")),
+])
+def test_much_bigger_city_wins_with_alternate_name(name, expected):
+    assert tuple(find_city(name)) == expected
