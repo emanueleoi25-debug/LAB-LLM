@@ -7,9 +7,12 @@ from zoneinfo import ZoneInfo, available_timezones
 
 from langchain_core.tools import BaseTool, tool
 
+from assistente.cities import find_city
+
 CLOCK_DESCRIPTION = (
-    "Restituisce la data e l'ora attuali. Parametro timezone: nome IANA del fuso orario, "
-    "ad esempio 'Asia/Tokyo'. Se omesso usa il fuso predefinito."
+    "Restituisce la data e l'ora attuali in una città. Parametro city: il nome della città "
+    "citata dall'utente, così come l'ha scritta (es. 'Miami', 'Nuova York'). Se l'utente non "
+    "nomina una città, omettilo e si usa il fuso predefinito."
 )
 
 
@@ -35,14 +38,21 @@ def canonical_timezone(name: str) -> str | None:
     return by_lower.get(name.lower())
 
 
-def current_time(timezone: str | None, default_timezone: str, now: datetime) -> str:
-    """Istante `now` nel fuso richiesto (o in quello predefinito), in ISO 8601 con il nome del fuso."""
-    requested = timezone if timezone is not None and timezone.strip() else default_timezone
-    name = canonical_timezone(requested)
-    if name is None:
-        return f"Errore: fuso orario sconosciuto '{requested}'. Usa un nome IANA come 'Europe/Rome'."
-    local = now.astimezone(ZoneInfo(name))
-    return f"{local.isoformat(timespec='seconds')} ({name})"
+def current_time(city: str | None, default_timezone: str, now: datetime) -> str:
+    """Istante `now` in ISO 8601, seguito da città e fuso usati.
+
+    `city` può essere un nome di città o un nome IANA; se manca si usa il fuso predefinito.
+    """
+    if city is None or not city.strip():
+        timezone, used = default_timezone, f"fuso predefinito {default_timezone}"
+    elif (iana := canonical_timezone(city)) is not None:
+        timezone, used = iana, f"fuso {iana}"
+    elif (found := find_city(city)) is not None:
+        timezone, used = found.timezone, f"{found.name}, {found.country}, fuso {found.timezone}"
+    else:
+        return f"Errore: città sconosciuta '{city}'. Indica il nome di una città, ad esempio 'Roma'."
+    local = now.astimezone(ZoneInfo(timezone))
+    return f"{local.isoformat(timespec='seconds')} ({used})"
 
 
 def make_clock_tool(
@@ -50,7 +60,7 @@ def make_clock_tool(
 ) -> BaseTool:
     """Crea lo strumento `get_current_time` con fuso predefinito e orologio iniettabile."""
 
-    def get_current_time(timezone: str | None = None) -> str:
-        return current_time(timezone, default_timezone, clock())
+    def get_current_time(city: str | None = None) -> str:
+        return current_time(city, default_timezone, clock())
 
     return tool("get_current_time", description=CLOCK_DESCRIPTION)(get_current_time)

@@ -10,7 +10,7 @@ from assistente.tools import make_clock_tool
 from tests.fakes import ScriptedModel
 
 NOW = datetime(2026, 10, 26, 16, 5, tzinfo=timezone.utc)
-TOKYO = "2026-10-27T01:05:00+09:00 (Asia/Tokyo)"
+TOKYO = "2026-10-27T01:05:00+09:00 (Tokyo, JP, fuso Asia/Tokyo)"
 clock = make_clock_tool("Europe/Rome", clock=lambda: NOW)
 
 
@@ -24,7 +24,7 @@ def start(text="x"):
 
 def tokyo_scenario():
     return ScriptedModel([
-        AIMessage("", tool_calls=[call("get_current_time", {"timezone": "Asia/Tokyo"}, "c1")]),
+        AIMessage("", tool_calls=[call("get_current_time", {"city": "Tokyo"}, "c1")]),
         AIMessage("Sono le 01:05"),
     ])
 
@@ -64,7 +64,7 @@ def test_tool_call_runs_tool_and_returns_result_to_model():
 def test_parallel_tool_calls_count_as_one_step():
     model = ScriptedModel([
         AIMessage("", tool_calls=[
-            call("get_current_time", {"timezone": "Asia/Tokyo"}, "c1"),
+            call("get_current_time", {"city": "Tokyo"}, "c1"),
             call("get_current_time", {}, "c2"),
         ]),
         AIMessage("fatto"),
@@ -118,20 +118,20 @@ def test_tool_exception_returns_error():
 
 
 def test_malformed_tool_args_return_error():
-    content = single_call_result("get_current_time", {"timezone": ["Asia/Tokyo"]}, [clock])
+    content = single_call_result("get_current_time", {"city": ["Tokyo"]}, [clock])
     assert content.startswith("Errore durante l'esecuzione di get_current_time")
 
 
 def test_tool_calls_are_logged(caplog):
     caplog.set_level(logging.INFO, logger="assistente.graph")
     build_graph(tokyo_scenario(), [clock]).invoke(start())
-    assert "strumento richiesto: get_current_time {'timezone': 'Asia/Tokyo'}" in caplog.text
+    assert "strumento richiesto: get_current_time {'city': 'Tokyo'}" in caplog.text
     assert f"risultato strumento: {TOKYO}" in caplog.text
 
 
 def test_history_after_tool_turn_is_valid_for_next_turn():
     model = ScriptedModel([
-        AIMessage("", tool_calls=[call("get_current_time", {"timezone": "Asia/Tokyo"}, "c1")]),
+        AIMessage("", tool_calls=[call("get_current_time", {"city": "Tokyo"}, "c1")]),
         AIMessage("Sono le 01:05"),
         AIMessage("Prego"),
     ])

@@ -37,6 +37,7 @@ def test_real_model_remembers_previous_turn(graph):
 
 
 def test_real_model_uses_clock_tool(graph):
-    history, reply = ask(graph, new_history(), "Che ore sono adesso a Tokyo?")
-    assert any(isinstance(m, ToolMessage) and m.name == "get_current_time" for m in history)
+    history, reply = ask(graph, new_history(), "Che ore sono adesso a Miami?")
+    results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "get_current_time"]
+    assert any("America/New_York" in r for r in results), results
     assert reply.strip()

@@ -6,7 +6,7 @@ import openai
 import pytest
 from langchain_core.messages import AIMessage
 
-from assistente.cli import configure_logging, main, run_chat
+from assistente.cli import SYSTEM_PROMPT, configure_logging, main, run_chat
 from assistente.graph import build_graph
 from tests.fakes import ScriptedModel
 
@@ -102,3 +102,7 @@ def test_unexpected_model_error_discards_question_and_continues():
     assert "Errore" in errs.getvalue()
     assert [m.type for m in model.calls[1]] == ["system", "human"]
     assert "Assistente> ok" in out.getvalue()
+
+
+def test_system_prompt_mentions_city_parameter():
+    assert "parametro city" in SYSTEM_PROMPT

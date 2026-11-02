@@ -16,7 +16,8 @@ from assistente.tools import make_clock_tool
 SYSTEM_PROMPT = (
     "Sei l'assistente del laboratorio. Rispondi in italiano, in modo breve e chiaro. "
     "Per conoscere la data o l'ora attuali usa sempre lo strumento get_current_time "
-    "e non inventarle."
+    "e non inventarle. Se l'utente chiede l'ora di una città, passa il nome della città "
+    "nel parametro city."
 )
 logger = logging.getLogger(__name__)
 
