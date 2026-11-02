@@ -802,6 +802,13 @@ cosa resta da provare a mano. Nessun push.
 Approvato il 2026-10-29. Spec: `L4/docs/superpowers/specs/2026-10-29-orologio-citta-log-design.md`.
 Fonte: `L4/docs/superpowers/plans/2026-10-29-orologio-citta-log.md`.
 
+**Esito (2026-11-02):** completato e pushato (`8cddce3`, `5df730f`, `e4211fa`, `220f277`,
+`28b82d8`). La revisione finale ha trovato un problema importante: il nome alternativo di una
+città più grande copriva quello di un'altra città. È stato corretto in `220f277` e restano 8
+problemi minori rimandati. Verifica finale su `220f277`: suite 83 superati / 3 skipped su 3.13 e
+3.14, LM Studio 3/3, checklist Docker 4/4, città 20/20 (San Francisco riuscita al secondo
+tentativo dopo un `Channel Error` di LM Studio). Dettagli in `L4/docs/registro-test.md`.
+
 ### Orologio per città e log dei messaggi — piano di implementazione
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
