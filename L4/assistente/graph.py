@@ -9,7 +9,14 @@ import logging
 from collections.abc import Sequence
 from typing import Annotated, Protocol, TypedDict
 
-from langchain_core.messages import AIMessage, AnyMessage, BaseMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
@@ -44,12 +51,49 @@ def _pending_tool_calls(state: AssistantState) -> list[dict]:
     return [*last.tool_calls, *last.invalid_tool_calls]
 
 
+def _one_line(text: str) -> str:
+    return text.replace("\n", "\\n")
+
+
+def _role(message: BaseMessage) -> str:
+    if isinstance(message, SystemMessage):
+        return "sistema"
+    if isinstance(message, HumanMessage):
+        return "utente"
+    if isinstance(message, ToolMessage):
+        return f"strumento {message.name}"
+    return message.type
+
+
+def _log_sent(messages: list[AnyMessage]) -> None:
+    """Registra i messaggi nuovi per il modello: quelli dopo la sua ultima risposta."""
+    start = 0
+    for i, message in enumerate(messages):
+        if isinstance(message, AIMessage):
+            start = i + 1
+    for message in messages[start:]:
+        logger.info("→ modello [%s] %s", _role(message), _one_line(message.text))
+
+
+def _log_received(message: AIMessage) -> None:
+    for tool_call in message.tool_calls:
+        logger.info("← modello [chiamata] %s %s", tool_call["name"], tool_call["args"])
+    for tool_call in message.invalid_tool_calls:
+        detail = tool_call.get("error") or tool_call.get("args")
+        logger.info("← modello [chiamata non valida] %s %s", tool_call.get("name"), _one_line(str(detail)))
+    if message.text:
+        logger.info("← modello [risposta] %s", _one_line(message.text))
+
+
 def build_graph(model: ChatModel, tools: Sequence[BaseTool] = (), max_tool_steps: int = 3):
     """Costruisce e compila il grafo con i nodi `modello`, `strumenti` e `limite`."""
     tools_by_name = {t.name: t for t in tools}
 
     def call_model(state: AssistantState) -> dict:
-        return {"messages": [model.invoke(state["messages"])]}
+        _log_sent(state["messages"])
+        message = model.invoke(state["messages"])
+        _log_received(message)
+        return {"messages": [message]}
 
     def run_tools(state: AssistantState) -> dict:
         results = []

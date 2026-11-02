@@ -160,3 +160,45 @@ def test_limit_closes_invalid_tool_calls():
     tools = [m for m in result["messages"] if isinstance(m, ToolMessage)]
     assert [m.tool_call_id for m in tools] == ["c0", "c1"]
     assert tools[-1].content == TOOL_SKIPPED
+
+
+def model_logs(caplog):
+    return [r.getMessage() for r in caplog.records if r.getMessage()[:9] in ("→ modello", "← modello")]
+
+
+def test_model_exchange_is_logged(caplog):
+    caplog.set_level(logging.INFO, logger="assistente.graph")
+    build_graph(tokyo_scenario(), [clock]).invoke(start("ora a Tokyo?"))
+    assert "→ modello [utente] ora a Tokyo?" in caplog.text
+    assert "← modello [chiamata] get_current_time {'city': 'Tokyo'}" in caplog.text
+    assert f"→ modello [strumento get_current_time] {TOKYO}" in caplog.text
+    assert "← modello [risposta] Sono le 01:05" in caplog.text
+
+
+def test_system_prompt_logged_only_on_first_question(caplog):
+    caplog.set_level(logging.INFO, logger="assistente.graph")
+    graph = build_graph(ScriptedModel([AIMessage("ciao"), AIMessage("prego")]))
+    history, _ = ask(graph, new_history(), "ciao")
+    assert caplog.text.count("→ modello [sistema]") == 1
+    caplog.clear()
+    ask(graph, history, "grazie")
+    assert [m for m in model_logs(caplog) if m.startswith("→")] == ["→ modello [utente] grazie"]
+
+
+def test_newlines_are_escaped_in_logs(caplog):
+    caplog.set_level(logging.INFO, logger="assistente.graph")
+    build_graph(ScriptedModel([AIMessage("riga1\nriga2")])).invoke(start())
+    assert "← modello [risposta] riga1\\nriga2" in model_logs(caplog)
+
+
+def test_invalid_call_is_logged(caplog):
+    caplog.set_level(logging.INFO, logger="assistente.graph")
+    model = ScriptedModel([AIMessage("", invalid_tool_calls=[invalid_call("c1")]), AIMessage("riprovo")])
+    build_graph(model, [clock]).invoke(start())
+    assert any(m.startswith("← modello [chiamata non valida] get_current_time") for m in model_logs(caplog))
+
+
+def test_block_content_is_logged_as_text(caplog):
+    caplog.set_level(logging.INFO, logger="assistente.graph")
+    build_graph(ScriptedModel([AIMessage(content=[{"type": "text", "text": "ciao"}])])).invoke(start())
+    assert "← modello [risposta] ciao" in model_logs(caplog)
