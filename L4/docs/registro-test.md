@@ -3,6 +3,58 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-02 — commit `220f277`
+
+Verifica da capo dopo la correzione della ricerca delle città emersa nella revisione finale.
+
+### Riepilogo
+
+| Verifica | Ambiente | Comando | Superati | Non superati | Skipped |
+|---|---|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 83 | 0 | 3 |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 83 | 0 | 3 |
+| Prove reali con LM Studio | venv locale, modello `google/gemma-4-e2b` | `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 3 | 0 | 0 |
+| Checklist manuale in Docker | container `assistente` + LM Studio sull'host | `docker compose run --rm -T --build assistente` | 4 | 0 | 0 |
+| Serie di città | venv locale, `python -m assistente`, una sessione per domanda | «Che ore sono a <città>?» | 20 | 0 | 0 |
+
+Test nuovi, superati su 3.13 e 3.14:
+- `test_main_name_beats_alternate_name_of_bigger_city[Zaragoza]`, `[Islamabad]`, `[Cancun]`;
+- `test_much_bigger_city_wins_with_alternate_name[Roma]`, `[Mexico]`.
+
+### Checklist manuale in Docker
+
+| Passo | Osservato | Esito |
+|---|---|---|
+| «Che ore sono a Miami?» | `{'city': 'Miami'}` → `2026-11-02T04:19:35-05:00 (Miami, US, fuso America/New_York)` | superato |
+| «Quale città ti ho chiesto prima?» | «Mi hai chiesto l'ora a Miami.» | superato |
+| nuovo avvio, stessa domanda | «Non mi hai chiesto una città prima in questa conversazione.» | superato |
+| «Che ore sono?» | `{}` → `2026-11-02T10:20:25+01:00 (fuso predefinito Europe/Rome)` | superato |
+
+### Serie di città
+
+Tra le 10:20 e le 10:39 ora di Roma, ogni domanda in una sessione nuova. Le 17 città della
+sessione su `5df730f` hanno dato gli stessi argomenti e gli stessi fusi (Miami 5 su 5 con
+`{'city': 'Miami'}`). Città aggiunte per la correzione:
+
+| Città | Argomenti dello strumento | Risultato | Esito |
+|---|---|---|---|
+| Saragozza | `{'city': 'Saragozza'}` | `Zaragoza, ES, fuso Europe/Madrid` | superato |
+| Islamabad | `{'city': 'Islamabad'}` | `Islamabad, PK, fuso Asia/Karachi` | superato |
+| Roma | `{'city': 'Roma'}` | `Rome, IT, fuso Europe/Rome` | superato |
+
+**San Francisco, primo tentativo: errore di LM Studio.** La domanda è rimasta senza risposta per
+12 minuti, poi l'applicazione ha mostrato `Errore: il modello non ha risposto (Error code: 400).
+Domanda scartata, riprova.` e si è chiusa regolarmente.
+- Nel log del server (`~/.lmstudio/server-logs`) il prompt è stato elaborato alle 10:24:15; alle
+  10:36:15 compare `[ERROR][google/gemma-4-e2b] Error: Channel Error` e il task viene annullato.
+- È quindi un errore interno di LM Studio. La domanda successiva ha funzionato normalmente.
+- Ripetuta in una sessione nuova alle 10:39: `{'city': 'San Francisco'}` →
+  `2026-11-02T01:39:42-08:00 (San Francisco, US, fuso America/Los_Angeles)`, superato.
+
+### Resta da provare
+
+- La checklist da un terminale interattivo vero (`docker compose run --rm assistente`, senza `-T`).
+
 ## Sessione del 2026-11-02 — commit `5df730f`
 
 Stato dopo l'orologio per città (`8cddce3`) e i log dei messaggi al modello (`5df730f`).

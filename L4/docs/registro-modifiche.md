@@ -5,6 +5,52 @@ non era giusto, perché, come è stato risolto, quali alternative sono state sca
 e come è stato verificato. Gli esiti completi delle verifiche sono in
 [`registro-test.md`](registro-test.md).
 
+## 2026-11-02 — Il nome alternativo di una città più grande copriva il nome di un'altra città
+
+**Che cosa non era giusto.** La revisione finale ha trovato città note risolte nel posto
+sbagliato, con il fuso sbagliato:
+- «Zaragoza» → Tijuana (Messico), 9 ore di differenza;
+- «Islamabad» → Chattogram (Bangladesh);
+- «Cancun» senza accento → Changchun (Cina).
+
+Tra le città con almeno 200.000 abitanti, 110 cercate con il loro nome ufficiale risultavano
+un'altra città.
+
+**Causa.** `find_city` metteva nomi ufficiali e nomi alternativi in un unico indice, e a parità di
+nome vinceva la città più popolosa. Una città grande con molti nomi alternativi copriva così il
+nome ufficiale di una città più piccola. Era un caso diverso da quello degli omonimi descritto
+nella specifica.
+
+**Soluzione.**
+- `cities.py` tiene due indici: nomi ufficiali, anche senza accenti, e nomi alternativi.
+- Il nome ufficiale prevale, salvo che la città trovata con il nome alternativo sia almeno 10
+  volte più popolosa (`ALTERNATE_NAME_FACTOR`).
+- Tra città con lo stesso nome nello stesso indice vince ancora la più popolosa.
+
+**Ragionamento.**
+- Dare sempre la precedenza al nome ufficiale non basta. La revisione ha simulato questa regola:
+  rompe i nomi italiani, il caso principale dello strumento («Roma» → Roma in Lesotho, «Mexico» →
+  Mexico nelle Filippine).
+- La soglia separa bene i due casi: Rome è circa 100 volte più popolosa di Roma (Lesotho), mentre
+  Tijuana è solo circa 2 volte Zaragoza.
+- Senza accenti viene indicizzato solo il nome ufficiale, così «Cancun» trova Cancún senza
+  aggiungere altre coincidenze tra i nomi alternativi.
+- Restano casi limite. Con la stessa misura sulle città ≥ 200.000 abitanti, 8 sono ancora
+  risolte in un'altra città e 5 hanno un fuso diverso (per esempio «Abadan» → Ibadan, «St.
+  Petersburg» → San Pietroburgo in Russia). Il risultato dello strumento dichiara sempre quale
+  città ha usato.
+
+**Commit.** `220f277` — `fix(strumenti): il nome principale di una città prevale sui nomi
+alternativi di altre`.
+
+**Verifica.**
+- TDD: `test_main_name_beats_alternate_name_of_bigger_city` (Zaragoza, Islamabad, Cancun) fallito
+  prima della correzione e superato dopo. `test_much_bigger_city_wins_with_alternate_name` (Roma,
+  Mexico) è verde prima e dopo.
+- Suite senza modello: 83 superati e 3 skipped su Python 3.13 e 3.14.
+- Prove reali, checklist e serie di città: sessione del 2026-11-02 (commit `220f277`) in
+  `registro-test.md`.
+
 ## 2026-11-02 — I log non mostravano il dialogo con il modello
 
 **Che cosa non era giusto.** A schermo comparivano solo `strumento richiesto` e
@@ -59,7 +105,7 @@ prove su Miami chiamava `get_current_time {}`, e lo strumento ricadeva sul fuso 
 **Soluzione.**
 - `cities.py` (nuovo): `find_city(name)` cerca la città in un archivio locale di `geonamescache`
   (città con almeno 5.000 abitanti). Usa anche i nomi alternativi («Nuova York», «Pechino»); tra
-  omonimi sceglie la più popolosa; se il nome contiene una virgola («Miami, Florida») riprova con
+  omonimi sceglie la più popolosa (regola poi precisata in `220f277`, voce sopra); se il nome contiene una virgola («Miami, Florida») riprova con
   la parte prima della virgola.
 - `tools.py`: lo strumento diventa `get_current_time(city)`. L'ordine di risoluzione è:
   1. nessuna città → fuso predefinito;

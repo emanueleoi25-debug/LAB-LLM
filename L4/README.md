@@ -65,8 +65,11 @@ e si può riprovare.
 Il modello può chiedere lo strumento `get_current_time(city)`. `city` è il nome della città come
 l'ha scritto l'utente (es. `Miami`, `Nuova York`, `Pechino`); il programma ne trova il fuso in un
 archivio locale (`geonamescache`, città con almeno 5.000 abitanti, nessun accesso alla rete).
-Maiuscole e spazi sono indifferenti, tra omonimi vince la città più popolosa e una parte dopo la
-virgola viene ignorata se serve (`Miami, Florida`). È accettato anche un nome IANA (`Asia/Tokyo`).
+Maiuscole, accenti nel nome ufficiale (`Cancun` trova Cancún) e spazi iniziali o finali sono
+indifferenti; una parte dopo la virgola viene ignorata se serve (`Miami, Florida`). Tra città con
+lo stesso nome vince la più popolosa. Il nome ufficiale di una città prevale sul nome alternativo
+di un'altra (`Zaragoza` resta in Spagna), salvo che quest'altra sia almeno 10 volte più popolosa
+(`Roma` è Rome, non Roma in Lesotho). È accettato anche un nome IANA (`Asia/Tokyo`).
 
 Il risultato dichiara sempre che cosa è stato usato:
 
