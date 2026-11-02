@@ -11,15 +11,21 @@ Un'applicazione da terminale in Python che conversa con un modello locale e:
 - conserva la cronologia della conversazione per la durata della sessione (nessuna persistenza);
 - offre uno strumento orologio con fuso orario esplicito, richiesto dal modello tramite tool calling
   ed eseguito davvero dal programma;
+- offrirà altri strumenti, sviluppati uno alla volta e in quest'ordine: convertitore di unità e
+  calcolatrice sicura (locali, come l'orologio), giorni e scadenze e catalogo locale (servizi
+  FastAPI), note persistenti e meteo (un server MCP ciascuno);
 - si avvia anche con Docker Compose.
 
 ## Confini
-- Implementare solo i requisiti concordati. Altri strumenti, MCP, workflow e RAG arriveranno
-  nelle lezioni successive: non anticiparli.
-- Niente interfacce grafiche, servizi cloud o framework non concordati.
+- Implementare solo i requisiti concordati, uno strumento alla volta: non anticipare quelli
+  successivi. Workflow e RAG arriveranno nelle lezioni successive.
+- Niente interfacce grafiche o framework non concordati.
+- Servizi esterni (per esempio API pubbliche via HTTP) ammessi solo se concordati per uno
+  strumento; nessuna credenziale nel codice o in Git.
+- Persistenza su disco ammessa solo per i dati dello strumento che la richiede (le note
+  persistenti, su SQLite); la cronologia della conversazione resta solo in memoria.
 - Lavorare solo dentro `Es.1/L4`. La repository contiene altre lezioni:
   non leggerle per copiarne il codice e non modificarle.
-- Lavorare nel branch corrente; nessun branch o worktree nuovo se non richiesto.
 
 ## Scelte tecniche
 - Python, codice sincrono e moduli piccoli, con una separazione semplice tra
@@ -69,6 +75,10 @@ Un'applicazione da terminale in Python che conversa con un modello locale e:
 - Prima di ogni commit: `git status`, controllo del diff, staging selettivo dei soli file pertinenti.
 - Mai versionare credenziali, `.env`, ambienti virtuali, cache o pesi dei modelli.
 - Push soltanto su mia richiesta.
+- Branch di lavoro: `dev`. Ogni nuova feature si sviluppa in un branch `feat/<nome-feature>`
+  creato da `dev` e, a feature completata e verificata, riunito in `dev`.
+- Merge su `main` solo con il mio permesso esplicito.
+- Niente worktree se non richiesti.
 
 ## Documentazione
 - Tenere aggiornato il README con configurazione, avvio, test e diagnosi, riportando solo
