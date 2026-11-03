@@ -6,7 +6,8 @@ import openai
 import pytest
 from langchain_core.messages import AIMessage
 
-from assistente.cli import SYSTEM_PROMPT, configure_logging, main, run_chat
+from assistente.cli import SYSTEM_PROMPT, configure_logging, main, make_tools, run_chat
+from assistente.config import Settings
 from assistente.graph import build_graph
 from tests.fakes import ScriptedModel
 
@@ -106,3 +107,12 @@ def test_unexpected_model_error_discards_question_and_continues():
 
 def test_system_prompt_mentions_city_parameter():
     assert "parametro city" in SYSTEM_PROMPT
+
+
+def test_tools_include_clock_and_converter():
+    settings = Settings(base_url="http://localhost:1234/v1", model="m")
+    assert [t.name for t in make_tools(settings)] == ["get_current_time", "convert_units"]
+
+
+def test_system_prompt_mentions_converter():
+    assert "convert_units" in SYSTEM_PROMPT

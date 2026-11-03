@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 
 from assistente.cli import ask, new_history
 from assistente.graph import LIMIT_REPLY, TOOL_SKIPPED, build_graph
-from assistente.tools import make_clock_tool
+from assistente.tools import make_clock_tool, make_converter_tool
 from tests.fakes import ScriptedModel
 
 NOW = datetime(2026, 10, 26, 16, 5, tzinfo=timezone.utc)
@@ -105,6 +105,12 @@ def single_call_result(name, args, tools):
 
 def test_unknown_tool_returns_error():
     assert single_call_result("meteo", {}, [clock]) == "Errore: strumento sconosciuto 'meteo'."
+
+
+def test_converter_call_returns_real_result():
+    args = {"value": 10, "from_unit": "miglia", "to_unit": "km"}
+    result = single_call_result("convert_units", args, [clock, make_converter_tool()])
+    assert result == "10 mi = 16.09 km (lunghezza)"
 
 
 def test_tool_exception_returns_error():
