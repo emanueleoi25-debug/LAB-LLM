@@ -4,7 +4,15 @@ from datetime import datetime, timezone
 import pytest
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
-from assistente.tools import convert_units, current_time, make_clock_tool, make_converter_tool
+from assistente.tools import (
+    CALCULATOR_DESCRIPTION,
+    calculate,
+    convert_units,
+    current_time,
+    make_calculator_tool,
+    make_clock_tool,
+    make_converter_tool,
+)
 
 NOW = datetime(2026, 10, 26, 16, 5, tzinfo=timezone.utc)
 MIAMI = "2026-10-26T12:05:00-04:00 (Miami, US, fuso America/New_York)"
@@ -135,3 +143,56 @@ def test_converter_tool_schema():
     assert set(properties) == {"value", "from_unit", "to_unit"}
     assert set(fn["parameters"]["required"]) == {"value", "from_unit", "to_unit"}
     assert "number" in json.dumps(properties["value"])
+
+
+@pytest.mark.parametrize("expr, expected", [
+    ("(3.5 + 2) * 4", "(3.5 + 2) * 4 = 22"),
+    ("0.1 + 0.2", "0.1 + 0.2 = 0.3"),
+    ("1 / 3", "1 / 3 = 0.333333333333333"),
+    ("2 / 3", "2 / 3 = 0.666666666666667"),
+    ("10 / 2", "10 / 2 = 5"),
+    ("7 × 6", "7 × 6 = 42"),
+    ("  2^10  ", "2^10 = 1024"),
+    ("-0", "-0 = 0"),
+    ("0 * -1", "0 * -1 = 0"),
+    ("1000000000000000", "1000000000000000 = 1000000000000000"),
+    ("0.000000000000001", "0.000000000000001 = 0.000000000000001"),
+    ("1234 * 5678", "1234 * 5678 = 7006652"),
+])
+def test_calculate_format(expr, expected):
+    assert calculate(expr) == expected
+
+
+@pytest.mark.parametrize("expr, expected", [
+    ("", "Errore: l'espressione è vuota."),
+    ("1+" * 100 + "1", "Errore: l'espressione supera i 200 caratteri."),
+    ("3,5", "Errore: usa il punto come separatore decimale (es. 3.5), non la virgola."),
+    ("3 x 4", "Errore: carattere non ammesso 'x'. Ammessi: cifre, punto decimale, "
+              "+ - * / // % ^ **, parentesi."),
+    ("2 3", "Errore: espressione non valida. Esempio corretto: '(3.5 + 2) * 4'."),
+    ("1000000000000001", "Errore: i numeri devono essere 0 oppure, in valore assoluto, compresi "
+                         "tra 0.000000000000001 e 1000000000000000."),
+    ("1 / 0", "Errore: divisione per zero."),
+    ("(-8)^0.5", "Errore: potenza non reale (base negativa con esponente non intero)."),
+    ("9^9^9", "Errore: il risultato è troppo grande per essere rappresentato."),
+    ("0.5^10000", "Errore: il risultato è troppo piccolo per essere rappresentato."),
+])
+def test_calculate_errors(expr, expected):
+    assert calculate(expr) == expected
+
+
+def test_calculator_tool_schema():
+    fn = convert_to_openai_tool(make_calculator_tool())["function"]
+    assert fn["name"] == "calculate"
+    assert fn["description"] == CALCULATOR_DESCRIPTION
+    assert set(fn["parameters"]["properties"]) == {"expression"}
+    assert fn["parameters"]["required"] == ["expression"]
+    assert "string" in json.dumps(fn["parameters"]["properties"]["expression"])
+
+
+def test_calculator_description_is_exact():
+    assert CALCULATOR_DESCRIPTION == (
+        "Calcola un'espressione aritmetica e restituisce il risultato. Operatori: + - * /, "
+        "// (divisione intera), % (resto), ^ o ** (potenza), parentesi. Usa il punto per i "
+        "decimali: se l'utente scrive 3,5 passa 3.5. Esempi: '(3.5 + 2) * 4', '2^10', '17 % 5'."
+    )

@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 
 from assistente.cli import ask, new_history
 from assistente.graph import LIMIT_REPLY, TOOL_SKIPPED, build_graph
-from assistente.tools import make_clock_tool, make_converter_tool
+from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
 from tests.fakes import ScriptedModel
 
 NOW = datetime(2026, 10, 26, 16, 5, tzinfo=timezone.utc)
@@ -112,6 +112,12 @@ def test_converter_call_returns_real_result():
     result = single_call_result("convert_units", args, [clock, make_converter_tool()])
     assert result == "10 mi = 16.09 km (lunghezza)"
 
+
+
+def test_calculator_call_returns_real_result():
+    args = {"expression": "1234 * 5678"}
+    result = single_call_result("calculate", args, [clock, make_calculator_tool()])
+    assert result == "1234 * 5678 = 7006652"
 
 def test_tool_exception_returns_error():
     @tool

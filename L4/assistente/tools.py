@@ -1,4 +1,4 @@
-"""Strumenti che il modello può richiedere: orologio e convertitore di unità."""
+"""Strumenti che il modello può richiedere: orologio, convertitore di unità e calcolatrice."""
 
 import functools
 import math
@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo, available_timezones
 
 from langchain_core.tools import BaseTool, tool
 
+from assistente.arithmetic import CalcError, Problem, evaluate
 from assistente.cities import find_city
 from assistente.units import UNITS, find_unit, from_base, to_base
 
@@ -22,6 +23,12 @@ CONVERTER_DESCRIPTION = (
     "Converte un valore tra due unità di misura della stessa categoria: lunghezza, massa, "
     "volume, temperatura, velocità, tempo. Parametri: value, il numero da convertire; "
     "from_unit e to_unit, il simbolo o il nome dell'unità (es. 'km', 'miglia', '°C', 'libbre')."
+)
+
+CALCULATOR_DESCRIPTION = (
+    "Calcola un'espressione aritmetica e restituisce il risultato. Operatori: + - * /, "
+    "// (divisione intera), % (resto), ^ o ** (potenza), parentesi. Usa il punto per i "
+    "decimali: se l'utente scrive 3,5 passa 3.5. Esempi: '(3.5 + 2) * 4', '2^10', '17 % 5'."
 )
 
 _ARTICLES = {
@@ -150,3 +157,48 @@ def make_converter_tool() -> BaseTool:
         return convert_units(value, from_unit, to_unit)
 
     return tool("convert_units", description=CONVERTER_DESCRIPTION)(convert)
+
+
+_CALC_ERRORS = {
+    Problem.EMPTY: "l'espressione è vuota.",
+    Problem.TOO_LONG: "l'espressione supera i 200 caratteri.",
+    Problem.COMMA: "usa il punto come separatore decimale (es. 3.5), non la virgola.",
+    Problem.CHARACTER: (
+        "carattere non ammesso '{char}'. Ammessi: cifre, punto decimale, + - * / // % ^ **, "
+        "parentesi."
+    ),
+    Problem.SYNTAX: "espressione non valida. Esempio corretto: '(3.5 + 2) * 4'.",
+    Problem.NUMBER_RANGE: (
+        "i numeri devono essere 0 oppure, in valore assoluto, compresi tra "
+        "0.000000000000001 e 1000000000000000."
+    ),
+    Problem.DIVISION_BY_ZERO: "divisione per zero.",
+    Problem.NOT_REAL: "potenza non reale (base negativa con esponente non intero).",
+    Problem.TOO_BIG: "il risultato è troppo grande per essere rappresentato.",
+    Problem.TOO_SMALL: "il risultato è troppo piccolo per essere rappresentato.",
+}
+
+
+def _format_number(value: float) -> str:
+    """15 cifre significative, senza notazione scientifica né zeri finali; mai -0."""
+    if value == 0:
+        return "0"
+    return format(Decimal(format(value, ".15g")).normalize(), "f")
+
+
+def calculate(expression: str) -> str:
+    """Risultato di `expression` come `<espressione> = <risultato>`; un testo `Errore: …` se non si può."""
+    try:
+        result = evaluate(expression)
+    except CalcError as exc:
+        return "Errore: " + _CALC_ERRORS[exc.problem].format(char=exc.char)
+    return f"{expression.strip()} = {_format_number(result)}"
+
+
+def make_calculator_tool() -> BaseTool:
+    """Crea lo strumento `calculate`."""
+
+    def calculate_tool(expression: str) -> str:
+        return calculate(expression)
+
+    return tool("calculate", description=CALCULATOR_DESCRIPTION)(calculate_tool)
