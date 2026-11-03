@@ -397,3 +397,21 @@ def test_invisible_character_keeps_raw_char():   # evaluate("1​+2") → CHARAC
 - [ ] README (sintassi: zeri iniziali, spaziature, simboli raddoppiati; arrotondamento dopo somme e
   sottrazioni; esito della prova su «per» e riga di diagnosi aggiornata), `docs/registro-test.md`,
   esito in `Es.1/plan.md`. Commit `docs: ...`. Poi chiedere l'ok per il merge in `dev`.
+
+#### Punti da chiarire (2026-11-03)
+
+##### «7 diviso 0» riceve una risposta a mente invece di una chiamata a `calculate`
+
+- **Osservato** con `google/gemma-4-e2b`: lo strumento viene chiamato 1 volta su 6 con la
+  descrizione attuale e 1 su 5 con quella vecchia (1 su 1 nella prima serie). Le risposte senza
+  chiamata sono corrette («la divisione per zero è indefinita») e nessuna inventa un risultato.
+  In un tentativo il modello ha scritto la chiamata come testo
+  (`calculate{expression:<|"|>7 / 0<|"|>}<tool_call|>`), che LM Studio non ha riconosciuto: il
+  testo è arrivato all'utente come risposta.
+- **Effetto:** il criterio del §1 della specifica («Quanto fa 7 diviso 0?» produce il testo
+  d'errore dello strumento) non è raggiunto in modo affidabile. Tutte le altre domande di calcolo
+  chiamano lo strumento, anche «2 + 2».
+- **Ipotesi:** il modello «sa» che la divisione per zero è indefinita e non sente il bisogno dello
+  strumento, come per «km → kg» nel convertitore (stesso schema, vedi il piano del convertitore).
+- **Da decidere con l'utente:** se e come intervenire (prompt, descrizione, criterio della
+  specifica), insieme al punto analogo del convertitore.

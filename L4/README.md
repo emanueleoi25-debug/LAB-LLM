@@ -182,14 +182,21 @@ operatori consentiti e parentesi. Nessuna dipendenza in più.
 | `( )` | parentesi |
 | `×` `·` / `÷` `:` / `−` | equivalenti di `*`, `/` e `-` |
 
-I decimali si scrivono con il punto (`.5` e `5.` sono ammessi). Funzioni, costanti, lettere,
-notazione scientifica (`1e5`), virgola decimale e separatori delle migliaia non sono ammessi.
+I decimali si scrivono con il punto (`.5` e `5.` sono ammessi); gli zeri iniziali non contano
+(`05 + 3` = 8). Tabulazioni, a capo e spazi non separabili valgono come spazi. Funzioni,
+costanti, lettere, notazione scientifica (`1e5`), virgola decimale e separatori delle migliaia
+non sono ammessi. Due simboli alternativi di seguito (`6::4`, `6÷÷4`) sono un errore di sintassi,
+non un operatore diverso.
 
-Il risultato ha al massimo 15 cifre significative, senza notazione scientifica né zeri finali:
+Il risultato ha al massimo 15 cifre significative, senza notazione scientifica né zeri finali.
+Dopo ogni somma o sottrazione con decimali il risultato si arrotonda alla 15ª cifra significativa
+dell'operando più grande, così il rumore dei float non resta nel risultato:
 
 ```
 (3.5 + 2) * 4 = 22
 0.1 + 0.2 = 0.3
+0.1 + 0.2 - 0.3 = 0
+100 * 1.1 - 110 = 0
 1 / 3 = 0.333333333333333
 7 × 6 = 42
 ```
@@ -202,7 +209,8 @@ Gli errori tornano al modello come testo, senza interrompere la sessione:
 | più di 200 caratteri | `Errore: l'espressione supera i 200 caratteri.` |
 | virgola | `Errore: usa il punto come separatore decimale (es. 3.5), non la virgola.` |
 | lettere o altri simboli (`3 x 4`, `1e5`, `=`) | `Errore: carattere non ammesso 'x'. Ammessi: cifre, punto decimale, + - * / // % ^ **, parentesi.` |
-| sintassi errata (`2 3`, `3 +`, `2(3+4)`) | `Errore: espressione non valida. Esempio corretto: '(3.5 + 2) * 4'.` |
+| carattere invisibile (es. spazio a larghezza zero) | `Errore: carattere non ammesso 'U+200B'. Ammessi: …` |
+| sintassi errata (`2 3`, `3 +`, `2(3+4)`, `6::4`) | `Errore: espressione non valida. Esempio corretto: '(3.5 + 2) * 4'.` |
 | numero fuori intervallo | `Errore: i numeri devono essere 0 oppure, in valore assoluto, compresi tra 0.000000000000001 e 1000000000000000.` |
 | divisione per zero (anche `0^-1`) | `Errore: divisione per zero.` |
 | base negativa con esponente non intero | `Errore: potenza non reale (base negativa con esponente non intero).` |
@@ -221,10 +229,14 @@ Esempio dal container:
 Assistente> $1234 \times 5678 = 7.006.652$
 ```
 
-Nelle prove del 2026-11-03 `google/gemma-4-e2b` ha chiamato lo strumento per tutte le domande di
-calcolo, anche per «Quanto fa 2 + 2?». Con «Quanto fa 3,5 per 2?» però ha passato `3.5 / 2`
-(5 tentativi su 5): ha letto «per» come divisione. Con «3,5 moltiplicato 2» l'espressione è
-corretta (2 su 2). Dettagli in [`docs/registro-test.md`](docs/registro-test.md).
+Nelle prove del 2026-11-03 `google/gemma-4-e2b` ha chiamato lo strumento anche per «Quanto fa
+2 + 2?». La descrizione dello strumento spiega che «per» e «x» indicano la moltiplicazione: senza
+questa frase il modello passava `3.5 / 2` per «Quanto fa 3,5 per 2?» (5 tentativi su 5), con la
+frase passa `3.5 * 2` (6 su 6). Per «Quanto fa 7 diviso 0?» invece risponde quasi sempre a mente
+(«la divisione per zero è indefinita»), con la descrizione nuova come con quella vecchia: lo
+strumento è stato chiamato 1 volta su 6 con la nuova e 1 su 5 con la vecchia (che nella prima
+serie lo aveva chiamato 1 volta su 1). Dettagli in
+[`docs/registro-test.md`](docs/registro-test.md).
 
 ## Docker Compose
 
@@ -317,7 +329,9 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `risultato strumento: Errore: unità incompatibili: …` | le due unità sono di categorie diverse (es. km e kg) | nessuna conversione è possibile: riformula con due unità della stessa categoria |
 | risposta a una conversione senza riga `strumento richiesto: convert_units` | il modello ha calcolato a mente (succede con domande come «ore in 3 settimane») | riformula nominando entrambe le unità, es. «Converti 3 settimane in ore» |
 | `risultato strumento: Errore: carattere non ammesso '…'` o `espressione non valida` | il modello ha scritto l'espressione con lettere, simboli non previsti o sintassi errata | nessuna azione: il modello riceve la sintassi ammessa e può riprovare; se si ripete, riformula con gli operatori, es. «Quanto fa 3 * 4?» |
-| `calculate` chiamato con l'operatore sbagliato (es. `3.5 / 2` per «3,5 per 2») | il modello ha frainteso la domanda (con gemma-4-e2b «per» diventa divisione) | riformula con un verbo esplicito, es. «3,5 moltiplicato 2», oppure scrivi l'operazione con i simboli |
+| `calculate` chiamato con l'operatore sbagliato | il modello ha frainteso la domanda (prima della descrizione attuale, con gemma-4-e2b «per» diventava divisione) | riformula con un verbo esplicito, es. «3,5 moltiplicato 2», oppure scrivi l'operazione con i simboli |
+| risposta a un calcolo senza riga `strumento richiesto: calculate` | il modello ha risposto a mente (succede quasi sempre con «7 diviso 0») | controlla la risposta: non è stata calcolata dallo strumento. Una formulazione che faccia sempre chiamare lo strumento non è ancora stata verificata (punto da chiarire nel piano della calcolatrice) |
+| `Assistente> calculate{expression:<\|"\|>…<\|"\|>}<tool_call\|>` | il modello ha scritto la chiamata come testo invece di una vera chiamata, e LM Studio non l'ha riconosciuta (visto 1 volta su 6 con «7 diviso 0») | ripeti la domanda: la chiamata non è stata eseguita |
 | `← modello [chiamata non valida] …` e `Errore: argomenti non validi…` | il modello ha prodotto argomenti non interpretabili | nessuna azione: il modello riceve l'errore e può riprovare entro `MAX_TOOL_STEPS` giri; se si ripete, riformula la domanda |
 
 Nel container i log riportano l'ora in UTC; le risposte dell'orologio usano invece il fuso richiesto.

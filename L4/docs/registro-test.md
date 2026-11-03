@@ -3,6 +3,68 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-03 (4) — commit `8590ca5`
+
+Correzioni della calcolatrice dopo la revisione finale (spec §7): descrizione con «per» e
+«diviso» (`14458b6`), arrotondamento dopo somme e sottrazioni (`f982b5a`), zeri iniziali,
+spaziature, caratteri invisibili e simboli raddoppiati (`8c20ace`), `CLAUDE.md` (`8590ca5`).
+Modello `google/gemma-4-e2b` in LM Studio sull'host.
+
+| Verifica | Ambiente | Comando | Superati | Non superati | Skipped |
+|---|---|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 261 | 0 | 5 |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 261 | 0 | 5 |
+| Prove reali con LM Studio | venv locale | `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 5 | 0 | 0 |
+| Calcoli in Docker | container `assistente` + LM Studio sull'host | `"Quanto fa 1234 * 5678?", "Quanto fa 0.1 + 0.2 - 0.3?", "esci" \| docker compose run --rm -T --build assistente` | 2 | 0 | 0 |
+| Serie a mano | venv locale, script con `create_graph` + `ask`, una sessione per domanda | 7 domande | 6 | 1 (nessuna chiamata) | 0 |
+
+In Docker: `calculate {'expression': '1234 * 5678'}` → `1234 * 5678 = 7006652`, risposta
+`$1234 \times 5678 = 7.006.652$.`; `calculate {'expression': '0.1 + 0.2 - 0.3'}` →
+`0.1 + 0.2 - 0.3 = 0`, risposta `$0.1 + 0.2 - 0.3 = 0$.`
+
+### «per» con la nuova descrizione
+
+| Domanda | Tentativi | Chiamata | Esito |
+|---|---|---|---|
+| «Quanto fa 3,5 per 2?» | 5 | `calculate` `3.5 * 2` in 5 su 5 | `3.5 * 2 = 7`, risposte «Fa 7.» o simili |
+| «Quanto fa 3,5 diviso 2?» | 1 | `calculate` `3.5 / 2` | `1.75` |
+| «Quanto fa 3,5 moltiplicato 2?» | 1 | `calculate` `3.5 * 2` | `7` |
+| «Quanto fa 2 + 2?» | 1 | `calculate` `2 + 2` | `4` |
+| «Quanti chilometri sono 10 miglia?» | 1 | `convert_units` `miglia` → `chilometro`, 10 | `16.09` |
+| «Che ore sono a Miami?» | 1 | `get_current_time` `Miami` | `America/New_York` |
+
+Criterio del §7.1 raggiunto: 5 su 5 (prima 0 su 5), nessuna regressione sui controlli. Nella serie
+completa «3,5 per 2» ha dato di nuovo `3.5 * 2` (6 su 6 in tutto).
+
+### Serie completa
+
+Come nella sessione (3), con queste differenze: «Quanto fa 3,5 per 2?» → `3.5 * 2 = 7`, risposta
+`7`; «Quanto fa 7 diviso 0?» → **nessuna chiamata**, risposta «La divisione per zero è
+indefinita.». Le altre cinque domande hanno chiamato lo strumento giusto con gli stessi argomenti
+e risultati.
+
+### «7 diviso 0»: chiamate allo strumento
+
+| Descrizione | Tentativi | Con chiamata | Senza chiamata |
+|---|---|---|---|
+| nuova (§7.1) | 6 (1 nella serie completa + 5 ripetizioni) | 1 (`7 / 0` → `Errore: divisione per zero.`) | 5 |
+| vecchia (sostituita solo nello script) | 5 | 1 | 4 |
+
+Le risposte senza chiamata sono corrette («indefinita», «non è possibile dividere per zero») e
+nessuna inventa un risultato. In un tentativo con la descrizione nuova il modello ha scritto la
+chiamata come testo (`calculate{expression:<|"|>7 / 0<|"|>}<tool_call|>`): LM Studio non l'ha
+riconosciuta come chiamata e il testo è arrivato all'utente come risposta. La nuova descrizione non
+peggiora il comportamento: anche con la vecchia lo strumento viene chiamato raramente. Il criterio
+del §1 della spec («Quanto fa 7 diviso 0?» produce il testo d'errore dello strumento) **non è
+raggiunto in modo affidabile**: è il punto da chiarire della calcolatrice (piano, sezione «Punti da
+chiarire»).
+
+### Resta da provare
+
+- Checklist completa in Docker da terminale interattivo (senza `-T`).
+- Una correzione per «7 diviso 0» risposto a mente e per la chiamata scritta come testo, da
+  concordare.
+
 ## Sessione del 2026-11-03 (3) — commit `5fe59a0`
 
 Calcolatrice sicura (`feat/calcolatrice-sicura`): modulo `arithmetic.py` in `a923f29`, strumento

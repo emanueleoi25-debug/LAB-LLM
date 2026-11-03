@@ -1,7 +1,7 @@
 # Calcolatrice sicura
 
 Data: 2026-11-03
-Stato: in revisione
+Stato: approvata (2026-11-03), con l'aggiunta del §7
 Branch: `feat/calcolatrice-sicura` (da `dev`)
 Specifiche di riferimento: `2026-10-26-assistente-langgraph-design.md`,
 `2026-10-29-orologio-citta-log-design.md` e `2026-11-02-convertitore-unita-design.md` (restano

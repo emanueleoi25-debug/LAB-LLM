@@ -1501,6 +1501,13 @@ Approvato il 2026-11-03 dopo la revisione finale (minori: valori estremi con cen
 Approvato il 2026-11-03 (esecuzione: Native). Spec: `L4/docs/superpowers/specs/2026-11-03-calcolatrice-sicura-design.md`.
 Fonte: `L4/docs/superpowers/plans/2026-11-03-calcolatrice-sicura.md`.
 
+**Esito (2026-11-03):** Task 1-3 completati (`a923f29`, `eb8f58d`, `5fe59a0`, `1891866`); revisione
+finale (subagent): 0 critici, 1 importante (rumore dei float dopo somme e sottrazioni), 5 minori.
+Aggiunta approvata (spec §7, Task 4-7): descrizione con «per» (`14458b6`), arrotondamento
+(`f982b5a`), minori (`8c20ace`), `CLAUDE.md` (`8590ca5`). Verifica completa su `8590ca5`: suite
+261 passed / 5 skipped su 3.13 e 3.14, LM Studio 5/5, Docker 2/2, «3,5 per 2» → `3.5 * 2` 6/6.
+Resta aperto il punto «7 diviso 0» risposto a mente (sezione «Punti da chiarire»).
+
 ### Calcolatrice sicura — piano di implementazione
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -1899,3 +1906,21 @@ def test_invisible_character_keeps_raw_char():   # evaluate("1​+2") → CHARAC
 - [ ] README (sintassi: zeri iniziali, spaziature, simboli raddoppiati; arrotondamento dopo somme e
   sottrazioni; esito della prova su «per» e riga di diagnosi aggiornata), `docs/registro-test.md`,
   esito in `Es.1/plan.md`. Commit `docs: ...`. Poi chiedere l'ok per il merge in `dev`.
+
+#### Punti da chiarire (2026-11-03)
+
+##### «7 diviso 0» riceve una risposta a mente invece di una chiamata a `calculate`
+
+- **Osservato** con `google/gemma-4-e2b`: lo strumento viene chiamato 1 volta su 6 con la
+  descrizione attuale e 1 su 5 con quella vecchia (1 su 1 nella prima serie). Le risposte senza
+  chiamata sono corrette («la divisione per zero è indefinita») e nessuna inventa un risultato.
+  In un tentativo il modello ha scritto la chiamata come testo
+  (`calculate{expression:<|"|>7 / 0<|"|>}<tool_call|>`), che LM Studio non ha riconosciuto: il
+  testo è arrivato all'utente come risposta.
+- **Effetto:** il criterio del §1 della specifica («Quanto fa 7 diviso 0?» produce il testo
+  d'errore dello strumento) non è raggiunto in modo affidabile. Tutte le altre domande di calcolo
+  chiamano lo strumento, anche «2 + 2».
+- **Ipotesi:** il modello «sa» che la divisione per zero è indefinita e non sente il bisogno dello
+  strumento, come per «km → kg» nel convertitore (stesso schema, vedi il piano del convertitore).
+- **Da decidere con l'utente:** se e come intervenire (prompt, descrizione, criterio della
+  specifica), insieme al punto analogo del convertitore.

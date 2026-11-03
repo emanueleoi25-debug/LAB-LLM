@@ -5,6 +5,95 @@ non era giusto, perché, come è stato risolto, quali alternative sono state sca
 e come è stato verificato. Gli esiti completi delle verifiche sono in
 [`registro-test.md`](registro-test.md).
 
+## 2026-11-03 — La calcolatrice trasformava il rumore dei float in un errore
+
+**Che cosa non era giusto.** La revisione finale della calcolatrice ha trovato espressioni
+corrette con un esito sbagliato:
+- `0.1 + 0.2 - 0.3`, `1.1 - 1 - 0.1` e `3 * 0.1 - 0.3` → `Errore: il risultato è troppo piccolo…`;
+- `100 * 1.1 - 110` → `0.000000000000014210854715202`.
+
+Il risultato atteso è `0`. Sono conti realistici, per esempio con i prezzi.
+
+**Causa.** In float `0.1 + 0.2` vale `0.30000000000000004`. Le cifre di rumore oltre la 15ª
+sopravvivono alla sottrazione successiva. La regola 10 della specifica («troppo piccolo, anche se
+intermedio») trasformava questo residuo in un errore. Il codice seguiva la specifica alla lettera:
+il difetto era nella specifica.
+
+**Soluzione (spec §7.2).** Dopo ogni `+` e `-` con almeno un operando non intero, il risultato si
+arrotonda a 15 cifre significative dell'operando più grande:
+`round(risultato, 14 - Decimal(m).adjusted())`.
+
+**Ragionamento.**
+- Le cifre oltre la 15ª dell'operando più grande non sono significative in un float, quindi
+  toglierle elimina solo il rumore.
+- Con due interi non si arrotonda: entro 1e15 la loro somma in float è esatta, e un arrotondamento
+  a 15 cifre guasterebbe `1000000000000000 - 1`.
+- L'esponente si prende da `Decimal`: `math.log10(999999999999999.5)` vale 15.0 per
+  arrotondamento, e `999999999999999.5 - 0.5` sarebbe diventato 1e15.
+- Scartate: togliere il controllo sugli intermedi (non elimina il rumore) e passare a `Decimal`
+  per tutto il calcolo (cambia le regole di `%` e della potenza già concordate).
+
+**Commit.** `f982b5a` — `fix(strumenti): la calcolatrice arrotonda il rumore dei float dopo somme e
+sottrazioni`.
+
+**Verifica.** `test_addition_noise_is_rounded` (7 casi) e due casi in `test_calculate_format`,
+prima falliti e poi superati; suite 261 passed su 3.13 e 3.14; in Docker «Quanto fa 0.1 + 0.2 -
+0.3?» → `0.1 + 0.2 - 0.3 = 0`.
+
+## 2026-11-03 — Il modello leggeva «per» come divisione
+
+**Che cosa non era giusto.** Con `google/gemma-4-e2b`, «Quanto fa 3,5 per 2?» produceva
+`calculate("3.5 / 2")` in 5 tentativi su 5, e la risposta era 1,75 invece di 7.
+
+**Causa.** «Per» è ambiguo: «3,5 per 2» è una moltiplicazione, «km per ora» una divisione. Il
+modello piccolo sceglieva la seconda lettura. Lo strumento calcolava correttamente ciò che
+riceveva, quindi l'errore nasceva nella traduzione della domanda.
+
+**Soluzione (spec §7.1).** La descrizione dello strumento aggiunge: «Parole: 'per' e 'x' indicano
+la moltiplicazione (3,5 per 2 → 3.5 * 2), 'diviso' la divisione.»
+
+**Ragionamento.**
+- La descrizione è il testo che il modello legge mentre scrive l'argomento. Lo stesso tipo di
+  indicazione aveva già funzionato per la virgola decimale (7 su 7).
+- Scartati: la stessa frase nel prompt di sistema (meno diretta, e il prompt parla già di tre
+  strumenti) e un modello più grande (cambia il modello del progetto).
+
+**Commit.** `14458b6` — `feat(strumenti): la descrizione della calcolatrice spiega «per» e
+«diviso»`.
+
+**Verifica.** `test_calculator_description_is_exact` aggiornato prima del codice. Prova reale:
+«3,5 per 2» → `3.5 * 2` in 5 su 5 (6 su 6 con la serie completa); i controlli «diviso»,
+«moltiplicato», «2 + 2», miglia → km e l'ora di Miami sono invariati. Nella stessa prova è
+emerso che «7 diviso 0» riceve quasi sempre una risposta a mente, con la descrizione vecchia come
+con la nuova: è registrato come punto da chiarire nel piano della calcolatrice.
+
+## 2026-11-03 — Zeri iniziali, spaziature e simboli raddoppiati nella calcolatrice
+
+**Che cosa non era giusto.** Problemi minori trovati dalla revisione finale:
+- `05 + 3` → «espressione non valida», mentre `00.5 + 1` era accettato;
+- una tabulazione o uno spazio non separabile → `carattere non ammesso` con un carattere
+  invisibile nel messaggio;
+- `6::4` → `1` (divisione intera) e `6*·4` → `1296` (potenza): due simboli alternativi di
+  seguito si fondevano in un altro operatore.
+
+**Causa.** Il parser di Python rifiuta gli interi con zeri iniziali; il controllo dei caratteri
+ammetteva solo lo spazio normale; i simboli alternativi venivano sostituiti senza separatori.
+
+**Soluzione (spec §7.3-7.5).**
+- Gli zeri iniziali della parte intera si tolgono prima dell'analisi (`05` → `5`); quelli dopo il
+  punto restano.
+- Ogni carattere di spaziatura vale come spazio.
+- Un carattere non stampabile nel messaggio d'errore si scrive come codice (`'U+200B'`).
+- Ogni simbolo alternativo si sostituisce circondato da spazi, così `6::4` diventa `6 /  / 4` e
+  dà «espressione non valida». `//` e `**` scritti in ASCII sono invariati.
+
+**Commit.** `8c20ace` — `fix(strumenti): zeri iniziali, spaziature e simboli raddoppiati nella
+calcolatrice`.
+
+**Verifica.** `test_leading_zeros_and_whitespace`, `test_doubled_symbols_and_nbsp_are_syntax_errors`,
+`test_invisible_character_is_shown_as_code_point` e `test_leading_zeros_keep_received_expression`,
+prima falliti e poi superati; suite 261 passed su 3.13 e 3.14.
+
 ## 2026-11-02 — Il nome alternativo di una città più grande copriva il nome di un'altra città
 
 **Che cosa non era giusto.** La revisione finale ha trovato città note risolte nel posto
