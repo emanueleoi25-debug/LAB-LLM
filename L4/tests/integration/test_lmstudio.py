@@ -41,3 +41,10 @@ def test_real_model_uses_clock_tool(graph):
     results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "get_current_time"]
     assert any("America/New_York" in r for r in results), results
     assert reply.strip()
+
+
+def test_real_model_uses_converter(graph):
+    history, reply = ask(graph, new_history(), "Quanti chilometri sono 10 miglia?")
+    results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "convert_units"]
+    assert any("16.09 km" in r for r in results), results
+    assert "16.09" in reply or "16,09" in reply, reply
