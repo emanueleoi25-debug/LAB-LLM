@@ -200,3 +200,14 @@ def test_calculator_description_is_exact():
         "per i decimali: se l'utente scrive 3,5 passa 3.5. Esempi: '(3.5 + 2) * 4', '2^10', "
         "'17 % 5'."
     )
+
+
+def test_invisible_character_is_shown_as_code_point():
+    assert calculate("1\u200b+2") == (
+        "Errore: carattere non ammesso 'U+200B'. Ammessi: cifre, punto decimale, "
+        "+ - * / // % ^ **, parentesi."
+    )
+
+
+def test_leading_zeros_keep_received_expression():
+    assert calculate("05 + 3") == "05 + 3 = 8"

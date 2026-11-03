@@ -7,6 +7,7 @@ numeri, operatori consentiti e segno. Qui non ci sono testi per il modello: gli 
 
 import ast
 import operator
+import re
 from decimal import Decimal
 from enum import Enum, auto
 
@@ -19,6 +20,8 @@ MAX_ABS = 1e15
 _ALTERNATIVES = {"×": "*", "·": "*", "÷": "/", ":": "/", "−": "-", "^": "**"}
 # Insieme esplicito: `str.isdigit()` accetterebbe anche `²` o le cifre arabo-indiane.
 _ALLOWED_CHARS = frozenset("0123456789.+-*/%() ")
+# Zeri iniziali della parte intera (`05` → `5`), che il parser di Python rifiuta; `0.05` resta.
+_LEADING_ZEROS = re.compile(r"(?<![\d.])0+(?=\d)")
 
 _BINARY = {
     ast.Add: operator.add,
@@ -137,9 +140,12 @@ def evaluate(expression: str) -> float:
         raise CalcError(Problem.TOO_LONG)
     if "," in text:
         raise CalcError(Problem.COMMA)
+    text = "".join(" " if char.isspace() else char for char in text)
     for alternative, symbol in _ALTERNATIVES.items():
-        text = text.replace(alternative, symbol)
+        # Con gli spazi due simboli consecutivi non si fondono: `6::4` non diventa `6//4`.
+        text = text.replace(alternative, f" {symbol} ")
     for char in text:
         if char not in _ALLOWED_CHARS:
             raise CalcError(Problem.CHARACTER, char)
+    text = _LEADING_ZEROS.sub("", text)
     return _compute(_parse(text).body)

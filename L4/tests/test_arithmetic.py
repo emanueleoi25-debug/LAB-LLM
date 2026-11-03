@@ -87,3 +87,26 @@ def test_negative_base_with_integer_exponent():
 ])
 def test_addition_noise_is_rounded(expr, expected):
     assert evaluate(expr) == expected
+
+
+@pytest.mark.parametrize("expr, expected", [
+    ("05 + 3", 8), ("007", 7), ("00.5 + 1", 1.5), ("0.05 * 100", 5),
+    ("1.005 * 1000", pytest.approx(1005)),  # gli zeri dopo il punto non si toccano
+    ("1 +\t2", 3), ("1\n+ 2", 3), ("6 // 4", 1), ("2^-1", 0.5),
+])
+def test_leading_zeros_and_whitespace(expr, expected):
+    assert evaluate(expr) == expected
+
+
+@pytest.mark.parametrize("expr", ["6::4", "6÷÷4", "6××4", "6*·4", "1\u00a0000 + 1"])
+def test_doubled_symbols_and_nbsp_are_syntax_errors(expr):
+    with pytest.raises(CalcError) as info:
+        evaluate(expr)
+    assert info.value.problem is Problem.SYNTAX
+
+
+def test_invisible_character_keeps_raw_char():
+    with pytest.raises(CalcError) as info:
+        evaluate("1\u200b+2")
+    assert info.value.problem is Problem.CHARACTER
+    assert info.value.char == "\u200b"

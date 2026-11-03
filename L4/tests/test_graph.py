@@ -113,11 +113,11 @@ def test_converter_call_returns_real_result():
     assert result == "10 mi = 16.09 km (lunghezza)"
 
 
-
 def test_calculator_call_returns_real_result():
     args = {"expression": "1234 * 5678"}
     result = single_call_result("calculate", args, [clock, make_calculator_tool()])
     assert result == "1234 * 5678 = 7006652"
+
 
 def test_tool_exception_returns_error():
     @tool

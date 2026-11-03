@@ -188,12 +188,19 @@ def _format_number(value: float) -> str:
     return format(Decimal(format(value, ".15g")).normalize(), "f")
 
 
+def _visible(char: str | None) -> str | None:
+    """Il carattere così com'è, oppure `U+XXXX` se non si vedrebbe (es. spazio a larghezza zero)."""
+    if char is None or char.isprintable():
+        return char
+    return f"U+{ord(char):04X}"
+
+
 def calculate(expression: str) -> str:
     """Risultato di `expression` come `<espressione> = <risultato>`; un testo `Errore: …` se non si può."""
     try:
         result = evaluate(expression)
     except CalcError as exc:
-        return "Errore: " + _CALC_ERRORS[exc.problem].format(char=exc.char)
+        return "Errore: " + _CALC_ERRORS[exc.problem].format(char=_visible(exc.char))
     return f"{expression.strip()} = {_format_number(result)}"
 
 
