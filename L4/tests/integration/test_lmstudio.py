@@ -1,6 +1,7 @@
 """Prove reali con LM Studio: si attivano solo con RUN_LMSTUDIO_TESTS=1."""
 
 import os
+import re
 
 import pytest
 from langchain_core.messages import ToolMessage
@@ -48,3 +49,10 @@ def test_real_model_uses_converter(graph):
     results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "convert_units"]
     assert any("16.09 km" in r for r in results), results
     assert "16.09" in reply or "16,09" in reply, reply
+
+
+def test_real_model_uses_calculator(graph):
+    history, reply = ask(graph, new_history(), "Quanto fa 1234 * 5678?")
+    results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "calculate"]
+    assert any("= 7006652" in r for r in results), results
+    assert "7006652" in re.sub(r"[.\s'’]", "", reply), reply

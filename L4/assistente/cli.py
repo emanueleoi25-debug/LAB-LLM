@@ -12,14 +12,15 @@ from langchain_core.tools import BaseTool
 from assistente.config import ConfigError, Settings, load_settings
 from assistente.graph import build_graph
 from assistente.model import ModelCheckError, check_model, create_chat_model
-from assistente.tools import make_clock_tool, make_converter_tool
+from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
 
 SYSTEM_PROMPT = (
     "Sei l'assistente del laboratorio. Rispondi in italiano, in modo breve e chiaro. "
     "Per conoscere la data o l'ora attuali usa sempre lo strumento get_current_time "
     "e non inventarle. Se l'utente chiede l'ora di una città, passa il nome della città "
     "nel parametro city. Per convertire unità di misura usa sempre lo strumento "
-    "convert_units e non fare il calcolo a mente."
+    "convert_units e non fare il calcolo a mente. Per qualsiasi calcolo aritmetico, anche "
+    "semplice, usa sempre lo strumento calculate e non fare il calcolo a mente."
 )
 logger = logging.getLogger(__name__)
 
@@ -88,8 +89,8 @@ def configure_logging(level: str) -> None:
 
 
 def make_tools(settings: Settings) -> list[BaseTool]:
-    """Strumenti offerti al modello: orologio e convertitore di unità."""
-    return [make_clock_tool(settings.default_timezone), make_converter_tool()]
+    """Strumenti offerti al modello: orologio, convertitore di unità e calcolatrice."""
+    return [make_clock_tool(settings.default_timezone), make_converter_tool(), make_calculator_tool()]
 
 
 def create_graph(settings: Settings):

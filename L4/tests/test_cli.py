@@ -109,10 +109,18 @@ def test_system_prompt_mentions_city_parameter():
     assert "parametro city" in SYSTEM_PROMPT
 
 
-def test_tools_include_clock_and_converter():
+def test_tools_include_all_local_tools():
     settings = Settings(base_url="http://localhost:1234/v1", model="m")
-    assert [t.name for t in make_tools(settings)] == ["get_current_time", "convert_units"]
+    names = [t.name for t in make_tools(settings)]
+    assert names == ["get_current_time", "convert_units", "calculate"]
 
 
 def test_system_prompt_mentions_converter():
     assert "convert_units" in SYSTEM_PROMPT
+
+
+def test_system_prompt_mentions_calculator():
+    assert SYSTEM_PROMPT.endswith(
+        " Per qualsiasi calcolo aritmetico, anche semplice, usa sempre lo strumento calculate "
+        "e non fare il calcolo a mente."
+    )
