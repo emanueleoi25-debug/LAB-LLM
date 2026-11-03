@@ -1462,3 +1462,29 @@ Approvato il 2026-11-03 dopo la revisione finale (minori: valori estremi con cen
 - [ ] **Step 6: Documentazione** — README: righe d'errore per valore fuori intervallo e risultato
   troppo piccolo, «risultato oltre i limiti» riferito a 1e15; registro dei test: sessione con gli
   esiti. Commit `docs: documenta l'intervallo gestito del convertitore`.
+
+#### Punti da chiarire (2026-11-03)
+
+##### Il modello calcola a mente invece di chiamare `convert_units`
+
+- **Osservato** con `google/gemma-4-e2b` e il prompt attuale. «Quante ore ci sono in 3 settimane?»
+  e «Quanti kg sono 5 km?» non hanno mai prodotto una chiamata allo strumento (0 su 4 ciascuna,
+  più 3 su 3 senza chiamata nella prova interrotta). Le risposte sono corrette e nessuna inventa
+  una conversione tra km e kg. Con «Converti 3 settimane in ore» e «Converti 5 km in kg» la chiamata
+  avviene (2 su 2 ciascuna). Le altre domande della serie chiamano lo strumento (4 su 4).
+- **Effetto:** il criterio di successo del §1 della specifica («Quanti kg sono 5 km?» produce il
+  testo d'errore dello strumento) non è raggiunto con la domanda originale.
+- **Ipotesi da verificare:**
+  1. la domanda non sembra una conversione, perché non contiene «convertire» né unità scritte
+     come simboli, e il prompt dice di usare lo strumento solo «per convertire»;
+  2. il modello sa già che km e kg sono incompatibili e il prompt non gli chiede di chiamare lo
+     strumento anche in quel caso;
+  3. è un limite del modello piccolo e non del testo del prompt.
+- **Prova proposta, non ancora eseguita:** varianti A (prompt attuale), B (usare lo strumento per
+  qualsiasi quantità con un'unità, anche se il calcolo è facile), C (B più: chiamarlo anche con
+  unità che sembrano incompatibili) e D (A con `qwen/qwen3.8-27b`). Per ciascuna, 4 tentativi sulle
+  due domande e 2 sulle domande di controllo («10 miglia in km», «Che ore sono a Miami?», «Ciao,
+  come stai?»).
+- **Da decidere con l'utente:** quando eseguire la prova, la correzione (prompt, descrizione dello
+  strumento o criterio della specifica) e se il punto blocca il merge di `feat/convertitore-unita`
+  in `dev`.
