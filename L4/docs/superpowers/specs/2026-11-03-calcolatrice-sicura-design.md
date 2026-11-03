@@ -218,3 +218,75 @@ simulare.
 - Commit su `feat/calcolatrice-sicura`: `docs:` per questa specifica, `feat(strumenti):` per
   modulo e strumento con i test, `docs:` per README e registri. A feature verificata si chiede
   l'ok prima del merge in `dev`; push solo su richiesta.
+
+## 7. Aggiunta del 2026-11-03: correzioni dopo la revisione finale
+
+Approvata il 2026-11-03 dopo le prove reali e la revisione finale. Integra i §2 e §3; dove li
+contraddice, vale questa sezione.
+
+### 7.1 «per» nella descrizione dello strumento
+
+Con `google/gemma-4-e2b`, «Quanto fa 3,5 per 2?» produceva `3.5 / 2` in 5 tentativi su 5: «per» è
+ambiguo («km per ora» è una divisione). La descrizione diventa:
+
+«Calcola un'espressione aritmetica e restituisce il risultato. Operatori: + - * /, // (divisione
+intera), % (resto), ^ o ** (potenza), parentesi. Parole: 'per' e 'x' indicano la moltiplicazione
+(3,5 per 2 → 3.5 * 2), 'diviso' la divisione. Usa il punto per i decimali: se l'utente scrive 3,5
+passa 3.5. Esempi: '(3.5 + 2) * 4', '2^10', '17 % 5'.»
+
+Criterio: con la nuova descrizione «Quanto fa 3,5 per 2?» produce `3.5 * 2` (o un'espressione
+equivalente) in almeno 4 tentativi su 5, senza regressioni sui controlli: «Quanto fa 3,5 diviso
+2?» → divisione, «Quanto fa 3,5 moltiplicato 2?» → moltiplicazione, «Quanto fa 2 + 2?» →
+`calculate`, «Quanti chilometri sono 10 miglia?» → `convert_units`, «Che ore sono a Miami?» →
+`get_current_time`. Se il criterio non è raggiunto, è un esito da riportare; prompt e modello non
+si cambiano senza un nuovo accordo.
+
+### 7.2 Rumore dei float dopo somme e sottrazioni
+
+`0.1 + 0.2` vale `0.30000000000000004` in float: il rumore sopravviveva alle sottrazioni e
+`0.1 + 0.2 - 0.3` dava «troppo piccolo», `100 * 1.1 - 110` dava `0.000000000000014210854715202`.
+
+- Dopo ogni `+` e `-` binario, se almeno un operando non è intero, il risultato si arrotonda a 15
+  cifre significative dell'operando più grande in valore assoluto:
+  `round(risultato, 14 - e)`, dove `e` è l'esponente decimale esatto di quell'operando
+  (`Decimal(m).adjusted()`, non `math.log10`, che vicino a 1e15 arrotonda per eccesso).
+- Con due operandi interi non si arrotonda: entro 1e15 la somma di due interi in float è esatta.
+- L'arrotondamento avviene prima dei controlli 9 e 10 del §3.
+- Esiti: `0.1 + 0.2 - 0.3 = 0`, `1.1 - 1 - 0.1 = 0`, `3 * 0.1 - 0.3 = 0`, `100 * 1.1 - 110 = 0`,
+  `1000000000000000 - 1 = 999999999999999`, `999999999999999.5 - 0.5 = 999999999999999`.
+
+### 7.3 Zeri iniziali
+
+Un numero con zeri iniziali nella parte intera è accettato e vale come senza: `05 + 3` = 8,
+`007` = 7, `00.5 + 1` = 1.5. Prima `05` dava «espressione non valida» (il parser di Python lo
+rifiuta) mentre `00.5` era accettato. L'espressione riportata nel risultato resta quella ricevuta.
+
+### 7.4 Spazi e caratteri invisibili
+
+- Ogni carattere di spaziatura (`str.isspace()`: tabulazione, a capo, spazio non separabile, …)
+  vale come uno spazio. `1 +\t2` = 3; `1 000 + 1` con uno spazio non separabile dà «espressione
+  non valida», come con lo spazio normale.
+- Nel messaggio del carattere non ammesso, un carattere non stampabile (`str.isprintable()` falso,
+  per esempio lo spazio a larghezza zero) si scrive come codice: `Errore: carattere non ammesso
+  'U+200B'. Ammessi: …`. Gli altri caratteri restano scritti così come sono.
+
+### 7.5 Simboli alternativi raddoppiati
+
+Ogni simbolo alternativo si sostituisce circondato da spazi (`÷` → ` / `, `^` → ` ** `, …), così
+due simboli consecutivi non si fondono in un operatore diverso: `6::4`, `6÷÷4`, `6××4` e `6*·4`
+danno «espressione non valida» (prima `6::4` dava la divisione intera e `6*·4` la potenza). `//` e
+`**` scritti in ASCII restano la divisione intera e la potenza.
+
+### 7.6 Ordine dei controlli aggiornato
+
+1-3 come nel §3 (vuota, lunghezza sull'espressione ricevuta senza spazi esterni, virgola); poi
+spaziature → spazio e sostituzione dei simboli alternativi; 4 carattere non ammesso; rimozione
+degli zeri iniziali; 5 sintassi e lista bianca; 6-10 durante il calcolo, con l'arrotondamento del
+§7.2 dopo ogni somma e sottrazione.
+
+### 7.7 Documentazione
+
+`CLAUDE.md` (approvato dall'utente il 2026-11-03): nella struttura del pacchetto, `tools.py`
+(orologio, convertitore, calcolatrice) e `arithmetic.py` (analisi e calcolo sicuro delle
+espressioni aritmetiche). README e registro dei test aggiornati con questi comportamenti e con gli
+esiti delle nuove prove.
