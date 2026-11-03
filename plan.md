@@ -1808,3 +1808,94 @@ Expected: tutto PASS (i test `lmstudio` risultano skipped).
     (`tools.py` (orologio, convertitore, calcolatrice), `arithmetic.py` (analisi e calcolo sicuro
     delle espressioni)) e applicarla solo dopo il suo ok.
   - Commit `docs: documenta la calcolatrice sicura`. Poi chiedere l'ok per il merge in `dev`.
+
+#### Aggiunta del 2026-11-03: correzioni dopo la revisione finale
+
+Approvata dall'utente il 2026-11-03 (spec §7).
+
+##### Task 4: «per» nella descrizione (aggiunta del 2026-11-03, spec §7.1)
+
+**Files:**
+- Modify: `assistente/tools.py` (`CALCULATOR_DESCRIPTION`)
+- Test: `tests/test_tools.py` (`test_calculator_description_is_exact`)
+
+- [ ] **Step 1:** aggiornare `test_calculator_description_is_exact` al testo esatto del §7.1.
+- [ ] **Step 2:** `python -m pytest tests/test_tools.py -v` → FAIL solo su quel test.
+- [ ] **Step 3:** aggiornare `CALCULATOR_DESCRIPTION` al testo del §7.1.
+- [ ] **Step 4:** `python -m pytest` → tutto PASS.
+- [ ] **Step 5:** commit `feat(strumenti): la descrizione della calcolatrice spiega «per» e «diviso»`.
+- [ ] **Step 6: Prova reale** (script usa e getta, una sessione nuova per domanda): 5 tentativi su
+  «Quanto fa 3,5 per 2?» e 1 per ciascun controllo del §7.1, annotando chiamata, argomenti e
+  risposta. Esito atteso: almeno 4 su 5 con una moltiplicazione, controlli invariati. Un esito
+  negativo si riporta, non si corregge senza accordo.
+
+##### Task 5: arrotondamento dopo somme e sottrazioni (spec §7.2)
+
+**Files:**
+- Modify: `assistente/arithmetic.py` (`_compute`)
+- Test: `tests/test_arithmetic.py`, `tests/test_tools.py`
+
+- [ ] **Step 1: test che falliscono**
+
+```python
+@pytest.mark.parametrize("expr, expected", [
+    ("0.1 + 0.2 - 0.3", 0), ("1.1 - 1 - 0.1", 0), ("3 * 0.1 - 0.3", 0), ("100 * 1.1 - 110", 0),
+    ("0.1 + 0.2", 0.3),                         # uguaglianza esatta, non approx
+    ("1000000000000000 - 1", 999999999999999), ("999999999999999.5 - 0.5", 999999999999999),
+])
+def test_addition_noise_is_rounded(expr, expected): ...   # evaluate(expr) == expected
+```
+
+  In `tests/test_tools.py`, in `test_calculate_format`: `("0.1 + 0.2 - 0.3", "0.1 + 0.2 - 0.3 = 0")`,
+  `("100 * 1.1 - 110", "100 * 1.1 - 110 = 0")`.
+
+- [ ] **Step 2:** `python -m pytest tests/test_arithmetic.py tests/test_tools.py -v` → FAIL sui casi nuovi
+  tranne `0.1 + 0.2` e i due interi (già corretti: restano come protezione).
+- [ ] **Step 3:** in `_compute`, dopo `Add`/`Sub` e prima di `_check_range`: se almeno un operando
+  non è intero, `round(result, 14 - Decimal(max(abs(left), abs(right))).adjusted())`.
+- [ ] **Step 4:** `python -m pytest` → tutto PASS.
+- [ ] **Step 5:** commit `fix(strumenti): la calcolatrice arrotonda il rumore dei float dopo somme e sottrazioni`.
+
+##### Task 6: problemi minori della revisione (spec §7.3-7.5, §7.7)
+
+**Files:**
+- Modify: `assistente/arithmetic.py`, `assistente/tools.py` (messaggio del carattere), `CLAUDE.md`
+- Test: `tests/test_arithmetic.py`, `tests/test_tools.py`, `tests/test_graph.py` (solo righe vuote)
+
+- [ ] **Step 1: test che falliscono**
+
+```python
+@pytest.mark.parametrize("expr, expected", [
+    ("05 + 3", 8), ("007", 7), ("00.5 + 1", 1.5), ("1.005 * 1000", 1005), ("0.05 * 100", 5),
+    ("1 +\t2", 3), ("1\n+ 2", 3), ("6 // 4", 1), ("2^-1", 0.5),
+])
+def test_minor_fixes_values(expr, expected): ...   # evaluate(expr) == expected
+
+@pytest.mark.parametrize("expr", ["6::4", "6÷÷4", "6××4", "6*·4", "1 000 + 1"])
+def test_doubled_symbols_and_nbsp_are_syntax_errors(expr): ...   # CalcError, Problem.SYNTAX
+
+def test_invisible_character_keeps_raw_char():   # evaluate("1​+2") → CHARACTER, char == "​"
+```
+
+  In `tests/test_tools.py`: `calculate("1​+2") == "Errore: carattere non ammesso 'U+200B'. Ammessi: cifre, punto decimale, + - * / // % ^ **, parentesi."`;
+  `calculate("05 + 3") == "05 + 3 = 8"`.
+
+- [ ] **Step 2:** `python -m pytest tests/test_arithmetic.py tests/test_tools.py -v` → FAIL sui casi nuovi.
+- [ ] **Step 3:** in `evaluate`, dopo la virgola: ogni carattere con `isspace()` → spazio; ogni
+  simbolo alternativo → ` <simbolo> ` (con spazi); controllo dei caratteri; poi
+  `re.sub(r"(?<![\d.])0+(?=\d)", "", text)` per gli zeri iniziali; poi `_parse`. In `tools.py` il
+  carattere non stampabile si scrive `U+%04X`.
+- [ ] **Step 4:** togliere le due righe vuote in più prima di `test_calculator_call_returns_real_result`;
+  `CLAUDE.md` come nel §7.7. `python -m pytest` → tutto PASS.
+- [ ] **Step 5:** commit `fix(strumenti): zeri iniziali, spaziature e simboli raddoppiati nella calcolatrice`
+  (codice e test) e `docs: struttura del pacchetto con la calcolatrice` (`CLAUDE.md`).
+
+##### Task 7: verifica completa e documentazione
+
+- [ ] Suite su 3.13 e 3.14 (`python -m pytest`, `docker compose --profile test run --rm --build test`).
+- [ ] Prove reali `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` → 5 PASS attesi.
+- [ ] Serie a mano completa della spec §5 (una sessione per domanda) con la nuova descrizione.
+- [ ] Docker: `"Quanto fa 1234 * 5678?", "esci" | docker compose run --rm -T --build assistente`.
+- [ ] README (sintassi: zeri iniziali, spaziature, simboli raddoppiati; arrotondamento dopo somme e
+  sottrazioni; esito della prova su «per» e riga di diagnosi aggiornata), `docs/registro-test.md`,
+  esito in `Es.1/plan.md`. Commit `docs: ...`. Poi chiedere l'ok per il merge in `dev`.
