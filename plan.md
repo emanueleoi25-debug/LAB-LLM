@@ -1103,6 +1103,13 @@ git commit -m "docs: documenta l'orologio per città, i log e il registro delle 
 Approvato il 2026-11-02. Spec: `L4/docs/superpowers/specs/2026-11-02-convertitore-unita-design.md`.
 Fonte: `L4/docs/superpowers/plans/2026-11-02-convertitore-unita.md`.
 
+**Esito (2026-11-03):** Task 1-4 completati, riunito in `dev` e pushato su `origin/dev` (`3a45050`).
+Commit: `de7422c`, `7f1d819`, `11c6039`, `4a7b950`; revisione finale: `ce9b45c` (risultati piccoli
+≠ 0 mostrati 0.00), Task 4 intervallo gestito (`945d3cf`, `7f451bb`, `a59ed58`); punto da chiarire
+registrato in `3a45050`. Verifica completa su `3a45050`: suite 150 passed / 4 skipped su 3.13 e
+3.14, LM Studio 4/4, checklist Docker 5/5. Resta aperto il punto «Il modello calcola a mente invece
+di chiamare `convert_units`» (sezione «Punti da chiarire»).
+
 ### Convertitore di unità — piano di implementazione
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
