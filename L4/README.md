@@ -166,6 +166,66 @@ ore» e «Converti 5 km in kg», hanno prodotto la chiamata allo strumento in 2 
 risultato `3 wk = 504.00 h (tempo)` e l'errore `unità incompatibili`. Dettagli in
 [`docs/registro-test.md`](docs/registro-test.md).
 
+## Strumento calcolatrice
+
+Il modello può chiedere lo strumento `calculate(expression)`, che calcola un'espressione
+aritmetica scritta dal modello traducendo la domanda. Il calcolo è locale e **non usa `eval`**:
+`ast.parse` costruisce soltanto l'albero sintattico, e il programma calcola accettando solo numeri,
+operatori consentiti e parentesi. Nessuna dipendenza in più.
+
+| Sintassi | Significato |
+|---|---|
+| `+ - * /` | operazioni di base |
+| `//` | divisione intera (arrotonda verso il basso: `-7 // 2` = -4) |
+| `%` | resto, con il segno del divisore (`-7 % 3` = 2) |
+| `^` o `**` | potenza, associativa a destra (`2^3^2` = 512); lega più del segno (`-2^2` = -4) |
+| `( )` | parentesi |
+| `×` `·` / `÷` `:` / `−` | equivalenti di `*`, `/` e `-` |
+
+I decimali si scrivono con il punto (`.5` e `5.` sono ammessi). Funzioni, costanti, lettere,
+notazione scientifica (`1e5`), virgola decimale e separatori delle migliaia non sono ammessi.
+
+Il risultato ha al massimo 15 cifre significative, senza notazione scientifica né zeri finali:
+
+```
+(3.5 + 2) * 4 = 22
+0.1 + 0.2 = 0.3
+1 / 3 = 0.333333333333333
+7 × 6 = 42
+```
+
+Gli errori tornano al modello come testo, senza interrompere la sessione:
+
+| Caso | Risultato |
+|---|---|
+| espressione vuota | `Errore: l'espressione è vuota.` |
+| più di 200 caratteri | `Errore: l'espressione supera i 200 caratteri.` |
+| virgola | `Errore: usa il punto come separatore decimale (es. 3.5), non la virgola.` |
+| lettere o altri simboli (`3 x 4`, `1e5`, `=`) | `Errore: carattere non ammesso 'x'. Ammessi: cifre, punto decimale, + - * / // % ^ **, parentesi.` |
+| sintassi errata (`2 3`, `3 +`, `2(3+4)`) | `Errore: espressione non valida. Esempio corretto: '(3.5 + 2) * 4'.` |
+| numero fuori intervallo | `Errore: i numeri devono essere 0 oppure, in valore assoluto, compresi tra 0.000000000000001 e 1000000000000000.` |
+| divisione per zero (anche `0^-1`) | `Errore: divisione per zero.` |
+| base negativa con esponente non intero | `Errore: potenza non reale (base negativa con esponente non intero).` |
+| risultato, anche intermedio, oltre 1000000000000000 | `Errore: il risultato è troppo grande per essere rappresentato.` |
+| risultato, anche intermedio, diverso da zero sotto 0.000000000000001 | `Errore: il risultato è troppo piccolo per essere rappresentato.` |
+
+L'intervallo gestito è lo stesso del convertitore e vale anche per i passaggi intermedi:
+`(10^8)^2 / 10^10` dà «troppo grande» al passo `(10^8)^2`.
+
+Esempio dal container:
+
+```
+2026-11-03 10:41:28,025 INFO assistente.graph: ← modello [chiamata] calculate {'expression': '1234 * 5678'}
+2026-11-03 10:41:28,033 INFO assistente.graph: → modello [strumento calculate] 1234 * 5678 = 7006652
+2026-11-03 10:41:35,387 INFO assistente.graph: ← modello [risposta] $1234 \times 5678 = 7.006.652$
+Assistente> $1234 \times 5678 = 7.006.652$
+```
+
+Nelle prove del 2026-11-03 `google/gemma-4-e2b` ha chiamato lo strumento per tutte le domande di
+calcolo, anche per «Quanto fa 2 + 2?». Con «Quanto fa 3,5 per 2?» però ha passato `3.5 / 2`
+(5 tentativi su 5): ha letto «per» come divisione. Con «3,5 moltiplicato 2» l'espressione è
+corretta (2 su 2). Dettagli in [`docs/registro-test.md`](docs/registro-test.md).
+
 ## Docker Compose
 
 L'immagine usa Python 3.14.9; LM Studio resta sull'host e il container lo raggiunge tramite
@@ -215,8 +275,8 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
 
 1. Test automatici su 3.13 e 3.14: `python -m pytest` e
    `docker compose --profile test run --rm --build test` (tutti passed, le prove reali skipped).
-2. Prove reali con LM Studio (comando sopra): risposta, memoria della sessione, uso dell'orologio
-   e del convertitore.
+2. Prove reali con LM Studio (comando sopra): risposta, memoria della sessione, uso dell'orologio,
+   del convertitore e della calcolatrice.
 3. In Docker, `docker compose run --rm assistente`:
    - «Che ore sono a Miami?» → su stderr compaiono `← modello [chiamata] get_current_time
      {'city': 'Miami'}` e un risultato con `America/New_York`; la risposta è coerente con l'ora
@@ -226,7 +286,10 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
    - «Che ore sono?» → risultato con `fuso predefinito Europe/Rome`;
    - «Quanti chilometri sono 10 miglia?» → su stderr compare `← modello [chiamata] convert_units`
      con `miglia` (o `mi`) e `value` 10, poi il risultato `10 mi = 16.09 km (lunghezza)`; la
-     risposta contiene 16.09.
+     risposta contiene 16.09;
+   - «Quanto fa 1234 * 5678?» → su stderr compare `← modello [chiamata] calculate` con
+     un'espressione equivalente a `1234 * 5678`, poi il risultato `1234 * 5678 = 7006652`; la
+     risposta contiene 7006652 (anche scritto `7.006.652`).
 
    Senza terminale interattivo si possono passare le righe da PowerShell:
 
@@ -253,6 +316,8 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `risultato strumento: Errore: unità sconosciuta '…'` | il modello ha passato un'unità fuori tabella o scritta in un modo non previsto | usa un simbolo o un nome dell'elenco; il modello riceve l'elenco delle unità ammesse e può riprovare |
 | `risultato strumento: Errore: unità incompatibili: …` | le due unità sono di categorie diverse (es. km e kg) | nessuna conversione è possibile: riformula con due unità della stessa categoria |
 | risposta a una conversione senza riga `strumento richiesto: convert_units` | il modello ha calcolato a mente (succede con domande come «ore in 3 settimane») | riformula nominando entrambe le unità, es. «Converti 3 settimane in ore» |
+| `risultato strumento: Errore: carattere non ammesso '…'` o `espressione non valida` | il modello ha scritto l'espressione con lettere, simboli non previsti o sintassi errata | nessuna azione: il modello riceve la sintassi ammessa e può riprovare; se si ripete, riformula con gli operatori, es. «Quanto fa 3 * 4?» |
+| `calculate` chiamato con l'operatore sbagliato (es. `3.5 / 2` per «3,5 per 2») | il modello ha frainteso la domanda (con gemma-4-e2b «per» diventa divisione) | riformula con un verbo esplicito, es. «3,5 moltiplicato 2», oppure scrivi l'operazione con i simboli |
 | `← modello [chiamata non valida] …` e `Errore: argomenti non validi…` | il modello ha prodotto argomenti non interpretabili | nessuna azione: il modello riceve l'errore e può riprovare entro `MAX_TOOL_STEPS` giri; se si ripete, riformula la domanda |
 
 Nel container i log riportano l'ora in UTC; le risposte dell'orologio usano invece il fuso richiesto.

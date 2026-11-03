@@ -3,6 +3,58 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-03 (3) — commit `5fe59a0`
+
+Calcolatrice sicura (`feat/calcolatrice-sicura`): modulo `arithmetic.py` in `a923f29`, strumento
+`calculate` in `eb8f58d`, registrazione nella CLI, frase nel prompt e prova reale in `5fe59a0`.
+Modello `google/gemma-4-e2b` in LM Studio sull'host.
+
+| Verifica | Ambiente | Comando | Superati | Non superati | Skipped |
+|---|---|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 235 | 0 | 5 |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 235 | 0 | 5 |
+| Prove reali con LM Studio | venv locale | `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 5 | 0 | 0 |
+| Calcolo in Docker | container `assistente` + LM Studio sull'host | `"Quanto fa 1234 * 5678?", "esci" \| docker compose run --rm -T --build assistente` | 1 | 0 | 0 |
+| Serie a mano | venv locale, script con `create_graph` + `ask`, una sessione per domanda | 7 domande, tutte con lo strumento giusto | 6 | 1 (espressione sbagliata) | 0 |
+
+Test nuovi: `tests/test_arithmetic.py` (59 casi: operatori e precedenze, simboli alternativi,
+ogni errore e il loro ordine, limiti), in `tests/test_tools.py` formato, testi d'errore, schema e
+descrizione di `calculate`, in `tests/test_graph.py` `test_calculator_call_returns_real_result`, in
+`tests/test_cli.py` `test_tools_include_all_local_tools` e `test_system_prompt_mentions_calculator`,
+in `tests/integration/test_lmstudio.py` `test_real_model_uses_calculator` (95 s per l'intera serie
+reale).
+
+### Serie a mano
+
+| Domanda | Chiamata | Risultato dello strumento | Risposta |
+|---|---|---|---|
+| «Quanto fa 1234 * 5678?» | `calculate` `1234 * 5678` | `1234 * 5678 = 7006652` | `$1234 \times 5678 = 7006652$.` |
+| «Quanto fa 3,5 per 2?» | `calculate` `3.5 / 2` | `3.5 / 2 = 1.75` | `1.75` (**sbagliata**: «per» letto come divisione) |
+| «Quanto fa 2 alla 10?» | `calculate` `2^10` | `2^10 = 1024` | «2 alla 10 fa 1024.» |
+| «Quanto fa 17 modulo 5?» | `calculate` `17 % 5` | `17 % 5 = 2` | «17 modulo 5 è 2.» |
+| «Quanto fa 7 diviso 0?» | `calculate` `7 / 0` | `Errore: divisione per zero.` | «La divisione di 7 per 0 è indefinita (errore di divisione per zero).» |
+| «Quanto fa 2 + 2?» | `calculate` `2 + 2` | `2 + 2 = 4` | `4` |
+| «Quanti chilometri sono 10 miglia?» | `convert_units` `miglia` → `chilometro`, 10 | `10 mi = 16.09 km (lunghezza)` | «10 miglia sono circa 16.09 chilometri.» |
+
+Ripetizioni: «Quanto fa 3,5 per 2?» ha dato `3.5 / 2` in altri 4 tentativi su 4 (5 su 5 in tutto),
+con risposte come «3,5 diviso 2 è 1,75». «Quanto fa 3,5 moltiplicato 2?» ha dato `3.5 * 2` e la
+risposta «Il risultato è 7.» in 2 tentativi su 2. La virgola è sempre stata trasformata in punto
+dal modello, quindi l'errore della virgola non si è mai presentato.
+
+Osservazioni:
+- il modello ha chiamato lo strumento anche per il calcolo facile «2 + 2», a differenza di quanto
+  visto con il convertitore;
+- l'errore su «per» nasce prima dello strumento: il modello sceglie l'operatore sbagliato, lo
+  strumento calcola correttamente ciò che riceve;
+- in due risposte il modello usa la notazione LaTeX (`$…$`), che nel terminale resta testo
+  grezzo.
+
+### Resta da provare
+
+- Checklist completa in Docker da terminale interattivo (senza `-T`).
+- Una correzione per «per» come moltiplicazione (prompt o descrizione dello strumento), da
+  concordare.
+
 ## Sessione del 2026-11-03 (2) — commit `7f451bb`
 
 Correzioni dopo la revisione finale del convertitore. `ce9b45c`: un risultato piccolo ma diverso
