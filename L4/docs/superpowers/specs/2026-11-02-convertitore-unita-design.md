@@ -221,3 +221,24 @@ Se il modello piccolo sbaglia gli argomenti, è un esito da riportare, non da si
 - Commit su `feat/convertitore-unita`: `docs:` per questa specifica, `feat(strumenti):` per tabella
   e strumento con i test, `docs:` per README e registri. A feature verificata si chiede l'ok prima
   del merge in `dev`; push solo su richiesta.
+
+## 7. Aggiunta del 2026-11-03: intervallo gestito
+
+Approvata il 2026-11-03 dopo la revisione finale, che aveva trovato valori e risultati estremi
+stampati con centinaia di cifre inventate (`1e300 km → m`) e `1e306 km → km` respinto come
+«troppo grande». Integra il §2.
+
+- Valore di partenza e risultato sono accettati solo se valgono 0 oppure, in valore assoluto,
+  sono compresi tra 0.000000000000001 e 1000000000000000 (1e-15 e 1e15, estremi inclusi).
+  Dentro l'intervallo le stringhe restano corte senza notazione scientifica.
+- Ordine dei controlli del §2 aggiornato:
+  1. valore non finito → `Errore: il valore deve essere un numero finito.`
+  2. valore fuori intervallo →
+     `Errore: il valore deve essere 0 oppure, in valore assoluto, compreso tra 0.000000000000001 e 1000000000000000.`
+  3. unità sconosciuta (prima `from_unit`, poi `to_unit`);
+  4. categorie diverse;
+  5. temperatura sotto lo zero assoluto;
+  6. risultato oltre 1e15 → `Errore: il risultato è troppo grande per essere rappresentato.`
+  7. risultato diverso da zero sotto 1e-15 → `Errore: il risultato è troppo piccolo per essere rappresentato.`
+- Con ingressi fino a 1e15 la conversione verso l'unità base non supera i limiti dei float
+  (caso peggiore t → mg, circa 1e24): il controllo sul risultato non finito non serve più.

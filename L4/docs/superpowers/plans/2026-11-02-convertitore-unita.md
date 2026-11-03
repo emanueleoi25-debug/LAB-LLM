@@ -328,3 +328,32 @@ git commit -m "docs: documenta il convertitore di unità e le verifiche"
 
 - [ ] **Step 7: Resoconto all'utente** con che cosa è stato eseguito, esiti e che cosa resta da
 provare; richiesta dell'ok per il merge di `feat/convertitore-unita` in `dev`.
+
+### Task 4: intervallo gestito (aggiunta del 2026-11-03)
+
+Approvato il 2026-11-03 dopo la revisione finale (minori: valori estremi con centinaia di cifre,
+`1e306 km → km` «troppo grande», `-273.15 °C → K` senza test). Spec: §7.
+
+**Files:**
+- Modify: `assistente/tools.py` (costanti `_MIN_ABS = 1e-15`, `_MAX_ABS = 1e15`; controlli 2, 6, 7 del §7)
+- Test: `tests/test_tools.py`
+- Docs: `README.md` (tabella degli errori), `docs/registro-test.md`
+
+- [ ] **Step 1: Test che falliscono** in `tests/test_tools.py`:
+  - `test_value_out_of_range`: `(1e16, "m", "km")`, `(-1e16, "m", "km")`, `(1e-16, "m", "km")`,
+    `(1e306, "km", "km")` → `Errore: il valore deve essere 0 oppure, in valore assoluto, compreso tra 0.000000000000001 e 1000000000000000.`
+  - casi nuovi in `test_convert_units`: `(1e15, "m", "m", "1000000000000000 m = 1000000000000000.00 m (lunghezza)")`,
+    `(1e-15, "m", "m", "0.000000000000001 m = 0.0000000000000010 m (lunghezza)")`,
+    `(-273.15, "°C", "K", "-273.15 °C = 0.00 K (temperatura)")`;
+  - `test_result_too_large`: `convert_units(1e14, "km", "mm")` (sostituisce `1e308`, ora respinto in entrata);
+  - `test_result_too_small`: `convert_units(1e-10, "mg", "t")` → `Errore: il risultato è troppo piccolo per essere rappresentato.`
+- [ ] **Step 2: Eseguirli** — Run: `python -m pytest tests/test_tools.py -v`. Expected: falliscono
+  `test_value_out_of_range` e `test_result_too_small`; `-273.15 °C`, gli estremi e `1e14 km → mm` possono già passare.
+- [ ] **Step 3: Implementare** i controlli nell'ordine del §7; il controllo sul risultato non finito
+  è sostituito da quello sul massimo.
+- [ ] **Step 4: Suite completa su 3.13 e 3.14** — `python -m pytest` e
+  `docker compose --profile test run --rm --build test`. Expected: nessun fallimento.
+- [ ] **Step 5: Commit** `fix(strumenti): limita il convertitore a un intervallo di valori rappresentabili`.
+- [ ] **Step 6: Documentazione** — README: righe d'errore per valore fuori intervallo e risultato
+  troppo piccolo, «risultato oltre i limiti» riferito a 1e15; registro dei test: sessione con gli
+  esiti. Commit `docs: documenta l'intervallo gestito del convertitore`.
