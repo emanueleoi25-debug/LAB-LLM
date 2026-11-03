@@ -32,6 +32,8 @@ _ARTICLES = {
     "velocità": "una velocità",
     "tempo": "un tempo",
 }
+# Scarto in kelvin entro cui un valore sotto zero è ancora lo zero assoluto (rumore dei float).
+_ABSOLUTE_ZERO_TOLERANCE = 1e-9
 _ALLOWED_UNITS = "; ".join(
     f"{category} ({', '.join(u.symbol for u in UNITS if u.category == category)})"
     for category in dict.fromkeys(u.category for u in UNITS)
@@ -96,7 +98,6 @@ def _format_input(value: float) -> str:
 
 def _format_result(value: float) -> str:
     """Due decimali; 2 cifre significative se il valore diventerebbe 0.00; mai -0.00."""
-    value = round(value, 12)  # elimina il rumore dei float (−459.67 °F → 0 K)
     if value == 0:
         return "0.00"
     if round(value, 2) == 0:  # 2 cifre significative, senza notazione scientifica
@@ -118,8 +119,10 @@ def convert_units(value: float, from_unit: str, to_unit: str) -> str:
             f"'{dst.symbol}' è {_ARTICLES[dst.category]}."
         )
     base = to_base(src, value)
-    if src.category == "temperatura" and round(base, 9) < 0:
-        return f"Errore: {_format_input(value)} {src.symbol} è sotto lo zero assoluto."
+    if src.category == "temperatura":
+        if base < -_ABSOLUTE_ZERO_TOLERANCE:
+            return f"Errore: {_format_input(value)} {src.symbol} è sotto lo zero assoluto."
+        base = max(base, 0.0)  # −459.67 °F dà −2.8e-14 K per il rumore dei float: è lo zero assoluto
     result = from_base(dst, base)
     if not math.isfinite(result):
         return "Errore: il risultato è troppo grande per essere rappresentato."

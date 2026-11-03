@@ -71,6 +71,8 @@ ALLOWED = ("lunghezza (mm, cm, m, km, in, ft, yd, mi); massa (mg, g, kg, t, oz, 
     (-0.0, "m", "km", "0 m = 0.00 km (lunghezza)"),
     (10.0, "km", "km", "10 km = 10.00 km (lunghezza)"),
     (1, "wk", "h", "1 wk = 168.00 h (tempo)"),
+    (0.0001, "mg", "t", "0.0001 mg = 0.00000000000010 t (massa)"),
+    (-273.1500000005, "°C", "K", "-273.1500000005 °C = 0.00 K (temperatura)"),
 ])
 def test_convert_units(value, src, dst, expected):
     assert convert_units(value, src, dst) == expected
