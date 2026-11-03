@@ -3,6 +3,25 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-03 (2) — commit `7f451bb`
+
+Correzioni dopo la revisione finale del convertitore. `ce9b45c`: un risultato piccolo ma diverso
+da zero non viene più mostrato come `0.00`, e i valori appena sotto lo zero assoluto non danno più
+kelvin negativi. `7f451bb`: è stato introdotto l'intervallo gestito (§7 della specifica). Non sono
+cambiati né il prompt né lo schema dello strumento, quindi le prove con LM Studio non sono state
+ripetute.
+
+| Verifica | Ambiente | Comando | Superati | Non superati | Skipped |
+|---|---|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 150 | 0 | 4 |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 150 | 0 | 4 |
+
+Test nuovi, superati su 3.13 e 3.14:
+- `test_convert_units`: `0.0001 mg → t` (`0.00000000000010 t`), `-273.1500000005 °C → K` e
+  `-273.15 °C → K` (`0.00 K`), gli estremi `1e15 m` e `1e-15 m`;
+- `test_value_out_of_range` (4 casi: `1e16`, `-1e16`, `1e-16`, `1e306 km → km`);
+- `test_result_too_small` (`1e-10 mg → t`). `test_result_too_large` ora usa `1e14 km → mm`.
+
 ## Sessione del 2026-11-03 — commit `11c6039`
 
 Convertitore di unità (`feat/convertitore-unita`): codice in `de7422c` e `7f1d819`, prova reale in

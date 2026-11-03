@@ -139,10 +139,16 @@ Gli errori tornano al modello come testo, senza interrompere la sessione:
 | Caso | Risultato |
 |---|---|
 | valore infinito o NaN | `Errore: il valore deve essere un numero finito.` |
+| valore fuori intervallo | `Errore: il valore deve essere 0 oppure, in valore assoluto, compreso tra 0.000000000000001 e 1000000000000000.` |
 | unità sconosciuta | `Errore: unità sconosciuta 'parsec'. Unità ammesse: lunghezza (mm, cm, …); …` |
 | categorie diverse | `Errore: unità incompatibili: 'km' è una lunghezza, 'kg' è una massa.` |
 | sotto lo zero assoluto | `Errore: -300 °C è sotto lo zero assoluto.` |
-| risultato oltre i limiti dei numeri | `Errore: il risultato è troppo grande per essere rappresentato.` |
+| risultato oltre 1000000000000000 | `Errore: il risultato è troppo grande per essere rappresentato.` |
+| risultato diverso da zero sotto 0.000000000000001 | `Errore: il risultato è troppo piccolo per essere rappresentato.` |
+
+Valori e risultati diversi da zero sono gestiti, in valore assoluto, tra 0.000000000000001 e
+1000000000000000 (1e-15 e 1e15): dentro l'intervallo si scrivono in poche cifre, senza notazione
+scientifica.
 
 Esempio dal container:
 
