@@ -27,8 +27,10 @@ CONVERTER_DESCRIPTION = (
 
 CALCULATOR_DESCRIPTION = (
     "Calcola un'espressione aritmetica e restituisce il risultato. Operatori: + - * /, "
-    "// (divisione intera), % (resto), ^ o ** (potenza), parentesi. Usa il punto per i "
-    "decimali: se l'utente scrive 3,5 passa 3.5. Esempi: '(3.5 + 2) * 4', '2^10', '17 % 5'."
+    "// (divisione intera), % (resto), ^ o ** (potenza), parentesi. Parole: 'per' e 'x' "
+    "indicano la moltiplicazione (3,5 per 2 → 3.5 * 2), 'diviso' la divisione. Usa il punto "
+    "per i decimali: se l'utente scrive 3,5 passa 3.5. Esempi: '(3.5 + 2) * 4', '2^10', "
+    "'17 % 5'."
 )
 
 _ARTICLES = {
