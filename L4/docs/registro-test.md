@@ -3,6 +3,68 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-03 — commit `11c6039`
+
+Convertitore di unità (`feat/convertitore-unita`): codice in `de7422c` e `7f1d819`, prova reale in
+`11c6039`. Modello `google/gemma-4-e2b` in LM Studio sull'host.
+
+### Riepilogo
+
+| Verifica | Ambiente | Comando | Superati | Non superati | Skipped |
+|---|---|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 140 | 0 | 4 |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 140 | 0 | 4 |
+| Prove reali con LM Studio | venv locale | `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 4 | 0 | 0 |
+| Conversione in Docker | container `assistente` + LM Studio sull'host | `"Quanti chilometri sono 10 miglia?", "esci" \| docker compose run --rm -T --build assistente` | 1 | 0 | 0 |
+| Serie a mano | venv locale, `"<domanda>" \| python -m assistente`, `LOG_LEVEL=INFO`, una sessione per domanda | 6 domande | 4 con lo strumento | 2 senza strumento | 0 |
+
+Le suite su 3.13 e su 3.14 sono passate anche su `7f1d819` (140 passed, 3 skipped). Rieseguite su
+`11c6039`, la nuova prova reale risulta skipped: 4 skipped.
+
+Test nuovi, superati su 3.13 e 3.14:
+- `tests/test_units.py`: `test_find_unit` (18 casi), `test_unknown_unit_is_none` (3),
+  `test_names_are_unique`, `test_categories_in_order`, `test_one_base_unit_per_category`,
+  `test_reference_conversions` (8);
+- `tests/test_tools.py`: `test_convert_units` (12 casi), `test_unknown_unit_lists_allowed_units`,
+  `test_incompatible_units` (2), `test_below_absolute_zero`, `test_non_finite_value` (3),
+  `test_result_too_large`, `test_converter_tool_accepts_numeric_string`,
+  `test_converter_tool_schema`;
+- `tests/test_graph.py`: `test_converter_call_returns_real_result`;
+- `tests/test_cli.py`: `test_tools_include_clock_and_converter`,
+  `test_system_prompt_mentions_converter`;
+- prova reale: `test_real_model_uses_converter` (superata con LM Studio).
+
+### Serie a mano
+
+Tra le 10:15 e le 10:25 ora di Roma, ogni domanda in una sessione nuova.
+
+| Domanda | Argomenti dello strumento | Risultato dello strumento | Risposta | Esito |
+|---|---|---|---|---|
+| Quanti chilometri sono 10 miglia? | `{'from_unit': 'miglia', 'to_unit': 'chilometri', 'value': 10}` | `10 mi = 16.09 km (lunghezza)` | «10 miglia sono circa 16.09 chilometri.» | superato |
+| Quanti gradi Fahrenheit sono 30 gradi Celsius? | `{'from_unit': 'Celsius', 'to_unit': 'Fahrenheit', 'value': 30}` | `30 °C = 86.00 °F (temperatura)` | «30 gradi Celsius sono 86.00 gradi Fahrenheit.» | superato |
+| Quanti kg sono 150 libbre? | `{'from_unit': 'libbre', 'to_unit': 'kg', 'value': 150}` | `150 lb = 68.04 kg (massa)` | «150 libbre equivalgono a 68.04 kg.» | superato |
+| Quanti km/h sono 20 nodi? | `{'from_unit': 'nodi', 'to_unit': 'km/h', 'value': 20}` | `20 kn = 37.04 km/h (velocità)` | «20 nodi equivalgono a circa 37.04 km/h.» | superato |
+| Quante ore ci sono in 3 settimane? | nessuna chiamata | — | «Ci sono 504 ore in 3 settimane.» (corretto, ma calcolato a mente) | non superato |
+| Quanti kg sono 5 km? | nessuna chiamata | — | «Non è possibile convertire chilometri (misura di lunghezza) in chilogrammi (misura di massa)…» | non superato |
+
+**Le due domande senza strumento sono state ripetute 3 volte ciascuna**, con lo stesso esito (4 su 4
+senza chiamata). Le risposte sono sempre state corrette e nessuna ha inventato una conversione tra
+km e kg. Il criterio della specifica chiede però il testo d'errore dello strumento, e quello non è
+arrivato.
+
+**Stesse domande riformulate**, 2 volte ciascuna:
+
+| Domanda | Argomenti | Risultato dello strumento | Risposta | Esito |
+|---|---|---|---|---|
+| Converti 3 settimane in ore | `{'from_unit': 'settimane', 'to_unit': 'ore', 'value': 3}` | `3 wk = 504.00 h (tempo)` | «3 settimane equivalgono a 504 ore.» | 2 su 2 |
+| Converti 5 km in kg | `{'from_unit': 'km', 'to_unit': 'kg', 'value': 5}` | `Errore: unità incompatibili: 'km' è una lunghezza, 'kg' è una massa.` | «Non è possibile convertire chilometri (lunghezza) in chilogrammi (massa)…» | 2 su 2 |
+
+### Conversione in Docker
+
+`{'from_unit': 'miglia', 'to_unit': 'chilometro', 'value': 10}` → `10 mi = 16.09 km (lunghezza)`;
+risposta «10 miglia sono circa 16.09 chilometri.», poi `esci` e «Arrivederci.». I log del container
+riportano l'ora in UTC.
+
 ## Sessione del 2026-11-02 — commit `220f277`
 
 Verifica da capo dopo la correzione della ricerca delle città emersa nella revisione finale.
