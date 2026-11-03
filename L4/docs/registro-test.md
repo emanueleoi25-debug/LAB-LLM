@@ -22,6 +22,23 @@ In Docker: `calculate {'expression': '1234 * 5678'}` → `1234 * 5678 = 7006652`
 `$1234 \times 5678 = 7.006.652$.`; `calculate {'expression': '0.1 + 0.2 - 0.3'}` →
 `0.1 + 0.2 - 0.3 = 0`, risposta `$0.1 + 0.2 - 0.3 = 0$.`
 
+### Verifica completa prima del push (`dev` = `a6e2ae5`)
+
+Rieseguita da capo dopo il merge in `dev` (solo documentazione rispetto a `8590ca5`):
+
+| Verifica | Esito |
+|---|---|
+| `python -m pytest` (3.13.14) | 261 passed, 5 skipped |
+| `docker compose --profile test run --rm --build test` (3.14.9) | 261 passed, 5 skipped |
+| `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 5 passed (83 s) |
+| Checklist in Docker, `docker compose run --rm -T --build assistente` con le domande in ingresso | 6 su 6 |
+
+Checklist: «Che ore sono a Miami?» → `get_current_time {'city': 'Miami'}`, `America/New_York`,
+06:31 coerente con l'ora reale; «Quale città ti ho chiesto prima?» → «Mi hai chiesto l'ora a
+Miami.»; «Che ore sono?» → `fuso predefinito Europe/Rome`; «Quanti chilometri sono 10 miglia?» →
+`10 mi = 16.09 km (lunghezza)`; «Quanto fa 1234 * 5678?» → `1234 * 5678 = 7006652`; nuova
+sessione, «Quale città ti ho chiesto prima?» → «Non mi hai chiesto nessuna città prima.»
+
 ### «per» con la nuova descrizione
 
 | Domanda | Tentativi | Chiamata | Esito |
