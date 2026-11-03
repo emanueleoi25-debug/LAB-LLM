@@ -39,8 +39,9 @@ Un'applicazione da terminale in Python che conversa con un modello locale e:
 - Comandi documentati anche per PowerShell (Windows).
 
 ## Struttura e comandi
-- Pacchetto `assistente/`: `config.py` (variabili d'ambiente), `tools.py` (orologio, convertitore),
-  `units.py` (tabella delle unità e conversione),
+- Pacchetto `assistente/`: `config.py` (variabili d'ambiente), `tools.py` (orologio, convertitore,
+  calcolatrice), `units.py` (tabella delle unità e conversione), `arithmetic.py` (analisi e calcolo
+  sicuro delle espressioni aritmetiche),
   `cities.py` (ricerca città → fuso su archivio locale), `graph.py` (stato, nodi, instradamento,
   log dei messaggi al modello), `model.py` (collegamento a LM Studio), `cli.py` (ciclo da
   terminale, cronologia, log), `__main__.py` (`python -m assistente`).
