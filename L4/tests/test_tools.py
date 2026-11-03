@@ -73,6 +73,9 @@ ALLOWED = ("lunghezza (mm, cm, m, km, in, ft, yd, mi); massa (mg, g, kg, t, oz, 
     (1, "wk", "h", "1 wk = 168.00 h (tempo)"),
     (0.0001, "mg", "t", "0.0001 mg = 0.00000000000010 t (massa)"),
     (-273.1500000005, "°C", "K", "-273.1500000005 °C = 0.00 K (temperatura)"),
+    (-273.15, "°C", "K", "-273.15 °C = 0.00 K (temperatura)"),
+    (1e15, "m", "m", "1000000000000000 m = 1000000000000000.00 m (lunghezza)"),
+    (1e-15, "m", "m", "0.000000000000001 m = 0.0000000000000010 m (lunghezza)"),
 ])
 def test_convert_units(value, src, dst, expected):
     assert convert_units(value, src, dst) == expected
@@ -101,8 +104,23 @@ def test_non_finite_value(value):
     assert convert_units(value, "m", "km") == "Errore: il valore deve essere un numero finito."
 
 
+OUT_OF_RANGE = ("Errore: il valore deve essere 0 oppure, in valore assoluto, compreso tra "
+                "0.000000000000001 e 1000000000000000.")
+
+
+@pytest.mark.parametrize("value, src, dst", [
+    (1e16, "m", "km"), (-1e16, "m", "km"), (1e-16, "m", "km"), (1e306, "km", "km"),
+])
+def test_value_out_of_range(value, src, dst):
+    assert convert_units(value, src, dst) == OUT_OF_RANGE
+
+
 def test_result_too_large():
-    assert convert_units(1e308, "km", "mm") == "Errore: il risultato è troppo grande per essere rappresentato."
+    assert convert_units(1e14, "km", "mm") == "Errore: il risultato è troppo grande per essere rappresentato."
+
+
+def test_result_too_small():
+    assert convert_units(1e-10, "mg", "t") == "Errore: il risultato è troppo piccolo per essere rappresentato."
 
 
 def test_converter_tool_accepts_numeric_string():

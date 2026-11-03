@@ -32,6 +32,10 @@ _ARTICLES = {
     "velocità": "una velocità",
     "tempo": "un tempo",
 }
+# Intervallo gestito per valori e risultati diversi da zero (in valore assoluto): dentro
+# l'intervallo i numeri si scrivono in poche cifre senza notazione scientifica.
+_MIN_ABS = 1e-15
+_MAX_ABS = 1e15
 # Scarto in kelvin entro cui un valore sotto zero è ancora lo zero assoluto (rumore dei float).
 _ABSOLUTE_ZERO_TOLERANCE = 1e-9
 _ALLOWED_UNITS = "; ".join(
@@ -109,6 +113,11 @@ def convert_units(value: float, from_unit: str, to_unit: str) -> str:
     """Converte `value` da `from_unit` a `to_unit`; un testo `Errore: …` se non si può."""
     if not math.isfinite(value):
         return "Errore: il valore deve essere un numero finito."
+    if value != 0 and not _MIN_ABS <= abs(value) <= _MAX_ABS:
+        return (
+            "Errore: il valore deve essere 0 oppure, in valore assoluto, compreso tra "
+            f"{_format_input(_MIN_ABS)} e {_format_input(_MAX_ABS)}."
+        )
     src, dst = find_unit(from_unit), find_unit(to_unit)
     for name, unit in ((from_unit, src), (to_unit, dst)):
         if unit is None:
@@ -124,8 +133,10 @@ def convert_units(value: float, from_unit: str, to_unit: str) -> str:
             return f"Errore: {_format_input(value)} {src.symbol} è sotto lo zero assoluto."
         base = max(base, 0.0)  # −459.67 °F dà −2.8e-14 K per il rumore dei float: è lo zero assoluto
     result = from_base(dst, base)
-    if not math.isfinite(result):
+    if abs(result) > _MAX_ABS:
         return "Errore: il risultato è troppo grande per essere rappresentato."
+    if result != 0 and abs(result) < _MIN_ABS:
+        return "Errore: il risultato è troppo piccolo per essere rappresentato."
     return (
         f"{_format_input(value)} {src.symbol} = {_format_result(result)} {dst.symbol} "
         f"({src.category})"
