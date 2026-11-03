@@ -74,3 +74,16 @@ def test_limits_are_inclusive():
 
 def test_negative_base_with_integer_exponent():
     assert evaluate("(-2)^3") == -8
+
+
+@pytest.mark.parametrize("expr, expected", [
+    ("0.1 + 0.2 - 0.3", 0),
+    ("1.1 - 1 - 0.1", 0),
+    ("3 * 0.1 - 0.3", 0),
+    ("100 * 1.1 - 110", 0),
+    ("0.1 + 0.2", 0.3),  # uguaglianza esatta, non approx
+    ("1000000000000000 - 1", 999999999999999),
+    ("999999999999999.5 - 0.5", 999999999999999),
+])
+def test_addition_noise_is_rounded(expr, expected):
+    assert evaluate(expr) == expected

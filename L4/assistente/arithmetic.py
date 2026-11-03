@@ -7,6 +7,7 @@ numeri, operatori consentiti e segno. Qui non ci sono testi per il modello: gli 
 
 import ast
 import operator
+from decimal import Decimal
 from enum import Enum, auto
 
 MAX_LENGTH = 200
@@ -30,6 +31,7 @@ _BINARY = {
 }
 _UNARY = {ast.UAdd: operator.pos, ast.USub: operator.neg}
 _DIVISIONS = (ast.Div, ast.FloorDiv, ast.Mod)
+_SUMS = (ast.Add, ast.Sub)
 
 
 class Problem(Enum):
@@ -96,6 +98,19 @@ def _power(base: float, exponent: float) -> float:
     return result
 
 
+def _round_sum(left: float, right: float, result: float) -> float:
+    """Toglie il rumore dei float oltre la 15ª cifra significativa dell'operando più grande.
+
+    `0.1 + 0.2` vale 0.30000000000000004: senza arrotondare, `0.1 + 0.2 - 0.3` darebbe 5.55e-17.
+    Due interi (entro 1e15) si sommano esattamente e restano intatti. L'esponente si prende da
+    `Decimal`, perché `math.log10` vicino a 1e15 arrotonda per eccesso.
+    """
+    if left.is_integer() and right.is_integer():
+        return result
+    exponent = Decimal(max(abs(left), abs(right))).adjusted()
+    return round(result, 14 - exponent)
+
+
 def _compute(node: ast.AST) -> float:
     if isinstance(node, ast.Constant):
         return _check_range(float(node.value), Problem.NUMBER_RANGE, Problem.NUMBER_RANGE)
@@ -108,6 +123,8 @@ def _compute(node: ast.AST) -> float:
         raise CalcError(Problem.DIVISION_BY_ZERO)
     else:
         result = _BINARY[type(node.op)](left, right)
+    if isinstance(node.op, _SUMS):
+        result = _round_sum(left, right, result)
     return _check_range(result, Problem.TOO_SMALL, Problem.TOO_BIG)
 
 
