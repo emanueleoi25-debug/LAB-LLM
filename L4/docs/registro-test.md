@@ -3,6 +3,53 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-03 (5) — commit `3dd9141`
+
+Prova (spike) sui punti da chiarire di calcolatrice e convertitore: il modello risponde a mente
+invece di chiamare lo strumento. Codice del progetto invariato; script usa e getta fuori dal repo
+con gli stessi `build_graph`, `create_chat_model` e strumenti di `create_graph`, una sessione nuova
+per ogni tentativo, cambiando solo il `SystemMessage` e (variante C) le descrizioni. Modello
+`google/gemma-4-e2b` in LM Studio sull'host, nessun altro modello (scelta dell'utente).
+
+Varianti:
+
+- **A** — prompt e descrizioni attuali.
+- **B** — prompt attuale più: «Usa gli strumenti anche quando la risposta ti sembra ovvia, il
+  calcolo è facile o l'operazione sembra impossibile (per esempio una divisione per zero o una
+  conversione tra unità di categorie diverse): chiama comunque lo strumento e riporta il suo esito.
+  Ogni domanda che chiede quanto vale una quantità in un'altra unità è una conversione.»
+- **C** — B più due frasi in coda alle descrizioni: `calculate` «Se l'espressione non si può
+  calcolare (per esempio una divisione per zero) restituisce un errore che spiega il motivo:
+  chiamalo comunque, non rispondere a mente.»; `convert_units` «Se le unità sono di categorie
+  diverse restituisce un errore che lo spiega: chiamalo comunque, non rispondere a mente.»
+
+| Domanda (strumento atteso) | A | B | C |
+|---|---|---|---|
+| «Quanto fa 7 diviso 0?» (`calculate`) | 4/6 | 2/6 | 6/6 |
+| «Quanti kg sono 5 km?» (`convert_units`) | 1/6 | 2/6 | 6/6 |
+| «Quante ore ci sono in 3 settimane?» (`convert_units`) | 0/6 | 0/6 | 0/6 |
+| «Quanto fa 1234 * 5678?» (`calculate`) | 2/2 | 2/2 | 2/2 |
+| «Quanto fa 3,5 per 2?» (`calculate`) | 2/2 | 2/2 | 2/2 |
+| «Converti 10 miglia in km» (`convert_units`) | 2/2 | 2/2 | 2/2 |
+| «Che ore sono a Miami?» (`get_current_time`) | 2/2 | 2/2 | 2/2 |
+| «Ciao, come stai?» (nessuno) | 2/2 | 2/2 | 2/2 |
+
+84 tentativi, nessun errore, nessuna chiamata scritta come testo. Con chiamata: `7 / 0` →
+`Errore: divisione per zero.`; `5 km → kg` → `Errore: unità incompatibili: 'km' è una lunghezza,
+'kg' è una massa.`. Le risposte senza chiamata sono corrette e nessuna inventa un risultato.
+«3 settimane in ore» chiama sempre `calculate` con `3 * 7 * 24` → `504` (18/18): la risposta viene
+da uno strumento e non è più a mente (prima della calcolatrice lo era).
+
+Lettura: la regola nel prompt (B) da sola non aiuta (2/6, non meglio di A); con le descrizioni (C)
+entrambe le domande arrivano a 6/6, senza effetti sui controlli. A oscilla tra prove (4/6 oggi,
+1/6 nella sessione (4)): con 6 tentativi la differenza tra A e B è rumore.
+
+### Resta da provare
+
+- Variante con le sole descrizioni di C e il prompt attuale (la modifica più piccola).
+- La correzione scelta, come aggiunta approvata a spec e piano, con prove reali ripetute.
+- Checklist completa in Docker da terminale interattivo (senza `-T`).
+
 ## Sessione del 2026-11-03 (4) — commit `8590ca5`
 
 Correzioni della calcolatrice dopo la revisione finale (spec §7): descrizione con «per» e

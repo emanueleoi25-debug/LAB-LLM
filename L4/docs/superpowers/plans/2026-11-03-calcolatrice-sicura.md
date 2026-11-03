@@ -415,3 +415,12 @@ def test_invisible_character_keeps_raw_char():   # evaluate("1​+2") → CHARAC
   strumento, come per «km → kg» nel convertitore (stesso schema, vedi il piano del convertitore).
 - **Da decidere con l'utente:** se e come intervenire (prompt, descrizione, criterio della
   specifica), insieme al punto analogo del convertitore.
+- **Prova del 2026-11-03 (spike, solo `gemma-4-e2b`)**, dettagli e testi delle varianti in
+  `docs/registro-test.md`, sessione (5). Chiamate a `calculate` su 6 tentativi: prompt attuale 4,
+  prompt con la regola «chiama anche se ovvio o impossibile» 2, stessa regola più la frase nella
+  descrizione («se l'espressione non si può calcolare, es. divisione per zero, restituisce un
+  errore: chiamalo comunque») **6**. Controlli invariati (10/10 in ogni variante), nessuna
+  chiamata scritta come testo. Conclusione provvisoria: conta la descrizione dello strumento, non
+  il prompt.
+- **Resta da decidere:** provare la sola descrizione con il prompt attuale (modifica più piccola),
+  poi la correzione come aggiunta approvata a spec e piano, insieme a quella del convertitore.
