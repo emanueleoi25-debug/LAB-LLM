@@ -1,6 +1,6 @@
 # Giorni e scadenze
 
-Data: 2026-11-05. Branch: `feat/giorni-scadenze` (da `dev` = `0f93c09`). Terzo strumento della
+Data: 2026-11-05, approvata dall'utente il 2026-11-05. Branch: `feat/giorni-scadenze` (da `dev` = `0f93c09`). Terzo strumento della
 roadmap in `CLAUDE.md`, primo servizio FastAPI. Estende le specifiche precedenti, in particolare
 `2026-11-03-calcolatrice-sicura-design.md` (§8: frasi che chiedono di chiamare lo strumento anche
 nei casi «impossibili»).
