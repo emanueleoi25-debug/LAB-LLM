@@ -1,10 +1,12 @@
 import logging
 from datetime import datetime, timezone
 
+import httpx
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 
 from assistente.cli import ask, new_history
+from assistente.dates import make_date_tools
 from assistente.graph import LIMIT_REPLY, TOOL_SKIPPED, build_graph
 from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
 from tests.fakes import ScriptedModel
@@ -214,3 +216,28 @@ def test_block_content_is_logged_as_text(caplog):
     caplog.set_level(logging.INFO, logger="assistente.graph")
     build_graph(ScriptedModel([AIMessage(content=[{"type": "text", "text": "ciao"}])])).invoke(start())
     assert "← modello [risposta] ciao" in model_logs(caplog)
+
+
+def test_date_tool_call_returns_service_text():
+    body = {
+        "data": "2027-06-02",
+        "giorno": "mercoledì",
+        "festivita": "Festa della Repubblica",
+        "fine_settimana": False,
+        "lavorativo": False,
+    }
+    date_tools = make_date_tools(
+        "http://servizio.test",
+        "Europe/Rome",
+        clock=lambda: NOW,
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)),
+    )
+    model = ScriptedModel([
+        AIMessage("", tool_calls=[call("date_info", {"date": "2027-06-02"}, "c1")]),
+        AIMessage("È festivo."),
+    ])
+    result = build_graph(model, date_tools).invoke(start("il 2 giugno è festivo?"))
+    sent = model.calls[1][-1]
+    assert isinstance(sent, ToolMessage) and sent.tool_call_id == "c1" and sent.name == "date_info"
+    assert sent.content == "2027-06-02 (mercoledì): festività, Festa della Repubblica; non lavorativo."
+    assert result["messages"][-1].content == "È festivo."

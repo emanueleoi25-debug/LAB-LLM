@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.tools import BaseTool
 
 from assistente.config import ConfigError, Settings, load_settings
+from assistente.dates import make_date_tools
 from assistente.graph import build_graph
 from assistente.model import ModelCheckError, check_model, create_chat_model
 from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
@@ -24,7 +25,10 @@ SYSTEM_PROMPT = (
     "strumenti anche quando la risposta ti sembra ovvia, il calcolo è facile o l'operazione "
     "sembra impossibile (per esempio una divisione per zero o una conversione tra unità di "
     "categorie diverse): chiama comunque lo strumento e riporta il suo esito. Ogni domanda che "
-    "chiede quanto vale una quantità in un'altra unità è una conversione."
+    "chiede quanto vale una quantità in un'altra unità è una conversione. "
+    "Per contare giorni tra date, calcolare scadenze in giorni di calendario o lavorativi e "
+    "sapere se una data è festiva o lavorativa usa gli strumenti days_between, add_days, "
+    "add_business_days e date_info; se l'utente non dice l'anno passa la data come MM-GG."
 )
 logger = logging.getLogger(__name__)
 
@@ -93,8 +97,13 @@ def configure_logging(level: str) -> None:
 
 
 def make_tools(settings: Settings) -> list[BaseTool]:
-    """Strumenti offerti al modello: orologio, convertitore di unità e calcolatrice."""
-    return [make_clock_tool(settings.default_timezone), make_converter_tool(), make_calculator_tool()]
+    """Strumenti offerti al modello: orologio, convertitore, calcolatrice e strumenti delle date."""
+    return [
+        make_clock_tool(settings.default_timezone),
+        make_converter_tool(),
+        make_calculator_tool(),
+        *make_date_tools(settings.giorni_base_url, settings.default_timezone),
+    ]
 
 
 def create_graph(settings: Settings):

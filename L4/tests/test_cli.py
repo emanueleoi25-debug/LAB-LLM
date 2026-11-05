@@ -112,7 +112,15 @@ def test_system_prompt_mentions_city_parameter():
 def test_tools_include_all_local_tools():
     settings = Settings(base_url="http://localhost:1234/v1", model="m")
     names = [t.name for t in make_tools(settings)]
-    assert names == ["get_current_time", "convert_units", "calculate"]
+    assert names == [
+        "get_current_time",
+        "convert_units",
+        "calculate",
+        "days_between",
+        "add_days",
+        "add_business_days",
+        "date_info",
+    ]
 
 
 def test_system_prompt_mentions_converter():
@@ -127,9 +135,17 @@ def test_system_prompt_mentions_calculator():
 
 
 def test_system_prompt_asks_to_call_tools_anyway():
-    assert SYSTEM_PROMPT.endswith(
+    assert (
         " Usa gli strumenti anche quando la risposta ti sembra ovvia, il calcolo è facile o "
         "l'operazione sembra impossibile (per esempio una divisione per zero o una conversione "
         "tra unità di categorie diverse): chiama comunque lo strumento e riporta il suo esito. "
         "Ogni domanda che chiede quanto vale una quantità in un'altra unità è una conversione."
+    ) in SYSTEM_PROMPT
+
+
+def test_system_prompt_mentions_date_tools():
+    assert SYSTEM_PROMPT.endswith(
+        " Per contare giorni tra date, calcolare scadenze in giorni di calendario o lavorativi "
+        "e sapere se una data è festiva o lavorativa usa gli strumenti days_between, add_days, "
+        "add_business_days e date_info; se l'utente non dice l'anno passa la data come MM-GG."
     )
