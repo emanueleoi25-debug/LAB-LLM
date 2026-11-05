@@ -22,7 +22,9 @@ CLOCK_DESCRIPTION = (
 CONVERTER_DESCRIPTION = (
     "Converte un valore tra due unità di misura della stessa categoria: lunghezza, massa, "
     "volume, temperatura, velocità, tempo. Parametri: value, il numero da convertire; "
-    "from_unit e to_unit, il simbolo o il nome dell'unità (es. 'km', 'miglia', '°C', 'libbre')."
+    "from_unit e to_unit, il simbolo o il nome dell'unità (es. 'km', 'miglia', '°C', 'libbre'). "
+    "Se le unità sono di categorie diverse restituisce un errore che lo spiega: chiamalo "
+    "comunque, non rispondere a mente."
 )
 
 CALCULATOR_DESCRIPTION = (
@@ -30,7 +32,8 @@ CALCULATOR_DESCRIPTION = (
     "// (divisione intera), % (resto), ^ o ** (potenza), parentesi. Parole: 'per' e 'x' "
     "indicano la moltiplicazione (3,5 per 2 → 3.5 * 2), 'diviso' la divisione. Usa il punto "
     "per i decimali: se l'utente scrive 3,5 passa 3.5. Esempi: '(3.5 + 2) * 4', '2^10', "
-    "'17 % 5'."
+    "'17 % 5'. Se l'espressione non si può calcolare (per esempio una divisione per zero) "
+    "restituisce un errore che spiega il motivo: chiamalo comunque, non rispondere a mente."
 )
 
 _ARTICLES = {

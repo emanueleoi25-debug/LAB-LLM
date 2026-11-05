@@ -120,7 +120,16 @@ def test_system_prompt_mentions_converter():
 
 
 def test_system_prompt_mentions_calculator():
-    assert SYSTEM_PROMPT.endswith(
+    assert (
         " Per qualsiasi calcolo aritmetico, anche semplice, usa sempre lo strumento calculate "
         "e non fare il calcolo a mente."
+    ) in SYSTEM_PROMPT
+
+
+def test_system_prompt_asks_to_call_tools_anyway():
+    assert SYSTEM_PROMPT.endswith(
+        " Usa gli strumenti anche quando la risposta ti sembra ovvia, il calcolo è facile o "
+        "l'operazione sembra impossibile (per esempio una divisione per zero o una conversione "
+        "tra unità di categorie diverse): chiama comunque lo strumento e riporta il suo esito. "
+        "Ogni domanda che chiede quanto vale una quantità in un'altra unità è una conversione."
     )

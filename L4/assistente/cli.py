@@ -20,7 +20,11 @@ SYSTEM_PROMPT = (
     "e non inventarle. Se l'utente chiede l'ora di una città, passa il nome della città "
     "nel parametro city. Per convertire unità di misura usa sempre lo strumento "
     "convert_units e non fare il calcolo a mente. Per qualsiasi calcolo aritmetico, anche "
-    "semplice, usa sempre lo strumento calculate e non fare il calcolo a mente."
+    "semplice, usa sempre lo strumento calculate e non fare il calcolo a mente. Usa gli "
+    "strumenti anche quando la risposta ti sembra ovvia, il calcolo è facile o l'operazione "
+    "sembra impossibile (per esempio una divisione per zero o una conversione tra unità di "
+    "categorie diverse): chiama comunque lo strumento e riporta il suo esito. Ogni domanda che "
+    "chiede quanto vale una quantità in un'altra unità è una conversione."
 )
 logger = logging.getLogger(__name__)
 
