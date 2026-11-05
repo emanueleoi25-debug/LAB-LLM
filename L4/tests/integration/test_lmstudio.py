@@ -3,6 +3,7 @@
 import os
 import re
 
+import httpx
 import pytest
 from langchain_core.messages import ToolMessage
 
@@ -56,3 +57,15 @@ def test_real_model_uses_calculator(graph):
     results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "calculate"]
     assert any("= 7006652" in r for r in results), results
     assert "7006652" in re.sub(r"[.\s'’]", "", reply), reply
+
+
+def test_real_model_uses_date_info(graph):
+    base_url = load_settings().giorni_base_url
+    try:
+        httpx.get(f"{base_url}/salute", timeout=5).raise_for_status()
+    except httpx.HTTPError as exc:
+        pytest.fail(f"servizio giorni non avviato: {exc}")
+    history, reply = ask(graph, new_history(), "Il 2 giugno 2027 è festivo?")
+    results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "date_info"]
+    assert any("Festa della Repubblica" in r for r in results), results
+    assert reply.strip()
