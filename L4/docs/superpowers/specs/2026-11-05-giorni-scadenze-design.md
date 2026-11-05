@@ -284,3 +284,49 @@ con `parametro '<nome>' mancante o non valido.` Nessun 500 per input dell'utente
   calendario e app con i test, `feat(strumenti):` per gli strumenti e la registrazione,
   `build:` per dipendenze e Docker, `docs:` per README e registri. A feature verificata si chiede
   l'ok prima del merge in `dev`; push solo su richiesta.
+
+## 9. Correzioni dopo la revisione finale (2026-11-05)
+
+Stato: proposta del 2026-11-05, **in attesa di approvazione** dell'utente.
+
+Revisione finale del branch (subagent, modello opus): 0 critici, 3 importanti, 4 minori. L'utente ha
+scelto di correggere i primi due importanti; il terzo (date `GG-MM` passate come `MM-GG`) e i minori
+restano annotati nel registro senza correzione.
+
+### 9.1 Lo strumento non solleva mai eccezioni HTTP
+
+Oggi `_call` in `assistente/dates.py` cattura solo `httpx.TransportError`. Altri errori di httpx che
+non sono di trasporto escono dallo strumento: per esempio `httpx.DecodingError`, con una risposta
+`Content-Encoding: gzip` e un corpo non compresso (riprodotto dal revisore). Il grafo li trasforma
+comunque in «Errore durante l'esecuzione di …», ma il §2 dice che lo strumento non solleva mai
+eccezioni.
+
+- `httpx.TransportError` resta `Errore: servizio giorni non raggiungibile a <GIORNI_BASE_URL>.`
+- Ogni altro `httpx.HTTPError` durante la richiesta o la lettura della risposta diventa
+  `Errore: risposta non valida dal servizio giorni.` (senza codice HTTP: in questi casi può mancare).
+- Test in `tests/test_dates.py`: un `MockTransport` che solleva `httpx.DecodingError("corpo
+  illeggibile")` produce esattamente quel testo per tutti e quattro gli strumenti.
+
+### 9.2 Indirizzo locale `127.0.0.1` al posto di `localhost`
+
+Su Windows `localhost` si risolve prima in `::1`, mentre uvicorn avviato senza `--host` ascolta solo
+su `127.0.0.1`. Ogni tentativo rifiutato costa circa 2 secondi: misurati 4,27 s via `localhost`
+contro 2,19 s via `127.0.0.1` con il servizio spento. Con il servizio acceso si presume lo stesso
+ritardo su ogni chiamata, per il tentativo fallito su `::1` (da misurare nella verifica). In Docker il
+problema non c'è (`http://giorni:8000`).
+
+- `.env.example` e README: `GIORNI_BASE_URL=http://127.0.0.1:8000`; comandi di prova del README su
+  `http://127.0.0.1:8000/salute`. Anche il `.env` locale, fuori da Git.
+- Il codice e i valori predefiniti dei test non cambiano. `Settings.giorni_base_url` resta
+  `"http://localhost:8000"`: serve solo ai test, che non usano la rete.
+- Verifica: tempo di una chiamata a `date_info` con il servizio locale acceso, misurato con
+  `localhost` e con `127.0.0.1` e riportato nel registro. Con il servizio spento, un nuovo esempio
+  reale del messaggio «non raggiungibile» per il README.
+- `LMSTUDIO_BASE_URL` ha lo stesso possibile ritardo, ma è precedente a questo branch: resta fuori
+  da questa correzione e si annota nel registro.
+
+### 9.3 Criteri
+
+Suite senza modello verde su 3.13 e 3.14; prove reali con LM Studio 6/6 con il servizio acceso;
+i tempi del §9.2 nel registro. Commit `fix(strumenti):` per il §9.1, `fix(config):` per il §9.2
+(`.env.example` e README), `docs:` per registro e `plan.md`.

@@ -2053,7 +2053,8 @@ Codice degli strumenti, grafo, modello, configurazione, Docker invariati.
 
 ## 2026-11-05 — L4: giorni e scadenze
 
-Approvato il 2026-11-05 (commit del piano richiesto dall'utente); metodo di esecuzione da scegliere.
+Approvato il 2026-11-05 (commit del piano richiesto dall'utente); eseguito con Subagent-Driven Development
+(scelta dell'utente), un implementatore e una revisione per task, revisione finale opus.
 Spec: `L4/docs/superpowers/specs/2026-11-05-giorni-scadenze-design.md`.
 Fonte: `L4/docs/superpowers/plans/2026-11-05-giorni-scadenze.md`.
 
@@ -2063,11 +2064,17 @@ LM Studio 6/6 con il servizio avviato. Serie della spec §7 con `google/gemma-4-
 nessuna chiamata scritta come testo, nessun errore di LM Studio): «Natale» → `days_between` 10/10,
 «tra 30 giorni» → `add_days` 10/10, «10 giorni lavorativi» → `add_business_days` 10/10, «2 giugno
 2027» → `date_info` 10/10, «30 febbraio» → `Errore:` dello strumento 9/10 (1 risposta a mente,
-nessuna data inventata); controlli 10/10. Servizio spento: errore «non raggiungibile» e chat che
+nessuna data inventata); controlli 2/2 ciascuno. Servizio spento: errore «non raggiungibile» e chat che
 continua, ma il modello ha risposto comunque con un numero. Checklist Docker: 8 su 10 come atteso;
 «7 diviso 0» e «5 km in kg» senza chiamata in una sessione lunga (da fresche: 9/10 e 10/10).
 `CLAUDE.md` non modificato: proposta in attesa dell'ok dell'utente. Non ancora riunito in `dev`,
 nessun push.
+
+**Revisione finale (2026-11-05, subagent opus):** «mergeabile con correzioni». 0 critici, 3 importanti
+(`_call` non cattura gli errori HTTP diversi dal trasporto; `localhost` → `::1` su Windows, circa 2 s
+per chiamata; rischio `GG-MM` passato come `MM-GG`), 4 minori. L'utente ha scelto di correggere i
+primi due: spec §9 e Task 7-8 qui sotto, **in attesa di approvazione**. `CLAUDE.md`: l'utente
+approva la proposta «con modifiche», da precisare.
 
 ### Giorni e scadenze — piano di implementazione
 
@@ -2416,3 +2423,54 @@ def test_easter_and_monday_match_algorithm(holidays, year):
   `docs: giorni e scadenze nel README e nei registri`.
 - [ ] **Step 6:** chiedere all'utente l'ok per il merge in `dev`. Push solo su richiesta, dopo la
   verifica completa rieseguita (suite 3.13 e 3.14, LM Studio, checklist Docker).
+
+#### Correzioni dopo la revisione finale (aggiunta del 2026-11-05)
+
+Stato: proposta del 2026-11-05, **in attesa di approvazione** dell'utente.
+
+Spec §9. Stessi Global Constraints del piano. Suite attuale: 379 passed, 6 skipped.
+
+##### Task 7: nessuna eccezione HTTP dagli strumenti (spec §9.1)
+
+**Files:**
+- Modify: `assistente/dates.py` (`_call`)
+- Test: `tests/test_dates.py`
+
+- [ ] **Step 1: test** `test_http_error_becomes_invalid_response` (parametrizzato sui quattro
+  strumenti con argomenti validi): il transport solleva `httpx.DecodingError("corpo illeggibile")`
+  → risultato esattamente `"Errore: risposta non valida dal servizio giorni."`.
+- [ ] **Step 2:** `python -m pytest tests/test_dates.py -v` → FAIL (l'eccezione esce dallo strumento).
+- [ ] **Step 3: implementare**: in `_call`, dopo `except httpx.TransportError` (invariato), un
+  `except httpx.HTTPError` → `"Errore: risposta non valida dal servizio giorni."`. La lettura della
+  risposta (`response.json()`) resta dentro la gestione già presente. Aggiornare la docstring se
+  elenca i casi.
+- [ ] **Step 4:** `python -m pytest` → 383 passed, 6 skipped (379 + 4 casi del test nuovo).
+- [ ] **Step 5: commit** `fix(strumenti): nessuna eccezione HTTP dagli strumenti delle date`
+  (`git add assistente/dates.py tests/test_dates.py`).
+
+##### Task 8: indirizzo locale 127.0.0.1 e verifica (spec §9.2-9.3)
+
+**Files:**
+- Modify: `.env.example`, `README.md`, `docs/registro-test.md`, `Es.1/plan.md`; `.env` locale fuori
+  da Git
+
+- [ ] **Step 1: misura prima della modifica**: servizio locale acceso
+  (`python -m uvicorn servizio_giorni.app:app --port 8000`); tempo di 3 chiamate a `date_info`
+  tramite `make_date_tools("http://localhost:8000", "Europe/Rome")` e di 3 tramite
+  `make_date_tools("http://127.0.0.1:8000", "Europe/Rome")` (script usa e getta nella scratchpad).
+- [ ] **Step 2: modifica**: `GIORNI_BASE_URL=http://127.0.0.1:8000` in `.env.example` e nel `.env`
+  locale; nel README la riga della variabile, i comandi `Invoke-RestMethod`/`curl.exe` su
+  `http://127.0.0.1:8000/salute` e il rimedio a `GIORNI_BASE_URL mancante`. Gli esempi di log reali
+  con `localhost` si sostituiscono con quelli nuovi dello Step 3.
+- [ ] **Step 3: verifica**: `python -m pytest` (3.13) e
+  `docker compose --profile test run --rm --build test` (3.14) → 383 passed, 6 skipped (379 + 4 casi del test nuovo); con il
+  servizio acceso `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` → 6 PASS; con il
+  servizio spento, una domanda sulle date dà nel log
+  `Errore: servizio giorni non raggiungibile a http://127.0.0.1:8000.` e la chat continua.
+  Fermare il servizio e lasciare libera la porta 8000.
+- [ ] **Step 4: commit** `fix(config): indirizzo locale 127.0.0.1 per il servizio giorni`
+  (`git add .env.example README.md`).
+- [ ] **Step 5: registro e piano**: in `docs/registro-test.md` una sessione con i tempi dello Step 1,
+  gli esiti dello Step 3 e, tra le cose da provare o da decidere, il rischio `GG-MM` (spec §9),
+  il comportamento a servizio spento e lo stesso possibile ritardo di `LMSTUDIO_BASE_URL`; esito in
+  `Es.1/plan.md`. Commit `docs: esito delle correzioni dopo la revisione finale`.
