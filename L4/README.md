@@ -35,6 +35,7 @@ Le variabili d'ambiente hanno la precedenza su `.env`, che resta fuori da Git.
 |---|---|---|---|
 | `LMSTUDIO_BASE_URL` | sì | — | indirizzo dell'API di LM Studio, es. `http://localhost:1234/v1` |
 | `LMSTUDIO_MODEL` | sì | — | identificativo del modello come restituito da `GET /v1/models` |
+| `GIORNI_BASE_URL` | sì | — | indirizzo del servizio giorni, es. `http://localhost:8000` (in Docker lo imposta `compose.yaml`) |
 | `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non indica una città (nome IANA) |
 | `MAX_TOOL_STEPS` | no | `3` | giri modello→strumenti consentiti per ogni domanda (intero ≥ 1) |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
@@ -48,9 +49,20 @@ Invoke-RestMethod http://localhost:1234/v1/models | Select-Object -ExpandPropert
 
 ## Avvio
 
+Servono due terminali, entrambi nella cartella `Es.1/L4` con il venv attivo. Nel primo si avvia il
+servizio giorni (vedi [Strumenti per giorni e scadenze](#strumenti-per-giorni-e-scadenze)), che
+resta in esecuzione; nel secondo la chat.
+
+```powershell
+python -m uvicorn servizio_giorni.app:app --port 8000
+```
+
 ```powershell
 python -m assistente
 ```
+
+L'applicazione si avvia anche con il servizio spento: non lo controlla all'avvio. Solo gli
+strumenti delle date rispondono allora con un errore (vedi Diagnosi).
 
 All'avvio l'applicazione controlla che LM Studio risponda e che il modello configurato sia
 disponibile; altrimenti termina con codice 1 e un messaggio che riporta l'indirizzo e i modelli
@@ -240,19 +252,117 @@ comunque») ha chiamato `calculate` in 10 tentativi su 10, con `Errore: division
 la sola regola né la sola frase bastavano. Dettagli in
 [`docs/registro-test.md`](docs/registro-test.md).
 
+## Strumenti per giorni e scadenze
+
+La logica sta in un servizio FastAPI separato, `servizio_giorni`, che non importa nulla da
+`assistente`. L'agente lo raggiunge via HTTP (indirizzo in `GIORNI_BASE_URL`, timeout 5 secondi) con
+quattro strumenti che trasformano la risposta JSON in un testo per il modello. Si avvia con:
+
+```powershell
+python -m uvicorn servizio_giorni.app:app --port 8000
+```
+
+Per controllare che risponda (da un altro terminale):
+
+```powershell
+Invoke-RestMethod http://localhost:8000/salute
+curl.exe http://localhost:8000/salute
+```
+
+La risposta è `{"stato":"ok","anni_festivita":[2020,2040]}`.
+
+| Strumento | Parametri | Che cosa fa |
+|---|---|---|
+| `days_between` | `end`, `start` (facoltativo) | giorni di calendario e giorni lavorativi tra due date |
+| `add_days` | `days`, `start` (facoltativo) | data ottenuta aggiungendo (o togliendo, se negativo) giorni di calendario |
+| `add_business_days` | `days`, `start` (facoltativo) | scadenza in giorni lavorativi, con le festività saltate |
+| `date_info` | `date` (facoltativo) | giorno della settimana, festività, fine settimana, lavorativo |
+
+Le date sono `AAAA-MM-GG` oppure `MM-GG` (vale la prossima occorrenza: `12-25` per Natale);
+i parametri di data omessi valgono oggi. «Oggi» è la data nel fuso `DEFAULT_TIMEZONE`, calcolata
+dallo strumento e passata sempre al servizio, che non legge mai il proprio orologio. «Lavorativo»
+vuol dire dal lunedì al venerdì e non festività nazionale italiana; una festività di sabato o
+domenica non si recupera. Il calcolo copre gli anni 1900-2100; festività e giorni lavorativi solo
+gli anni 2020-2040.
+
+Le festività stanno in `servizio_giorni/festivita.json`: le undici fisse (San Francesco d'Assisi,
+4 ottobre, dal 2026 per la legge 8 ottobre 2025 n. 151) e, per ogni anno 2020-2040, le date di
+Pasqua e Lunedì dell'Angelo scritte nel file (il servizio non le calcola). All'avvio il file è
+validato; se non è valido il servizio non parte e dice perché.
+
+Il risultato dichiara sempre che cosa è stato calcolato; gli errori iniziano con `Errore: ` e
+tornano al modello come testo, senza interrompere la sessione:
+
+| Caso | Esempio di risultato |
+|---|---|
+| `days_between` | `Dal 2026-11-05 (giovedì) al 2026-12-25 (venerdì): 50 giorni di calendario, 34 giorni lavorativi (esclusa la partenza, inclusa la data di arrivo).` |
+| `add_days` | `2026-11-05 (giovedì) + 30 giorni = 2026-12-05 (sabato)` |
+| `add_business_days` | `2026-11-05 (giovedì) + 10 giorni lavorativi = 2026-11-19 (giovedì); nessuna festività saltata.` |
+| `date_info`, festività | `2027-06-02 (mercoledì): festività, Festa della Repubblica; non lavorativo.` |
+| data non valida | `Errore: data non valida '02-30'. Usa AAAA-MM-GG o MM-GG.` |
+| servizio spento | `Errore: servizio giorni non raggiungibile a http://localhost:8000.` |
+| risposta inattesa | `Errore: risposta non valida dal servizio giorni (HTTP <codice>).` |
+
+Esempio dal container (prompt di sistema omesso):
+
+```
+2026-11-05 16:32:07,983 INFO assistente.graph: ← modello [chiamata] days_between {'end': '2026-12-25', 'start': '2026-11-05'}
+2026-11-05 16:32:08,008 INFO assistente.graph: risultato strumento: Dal 2026-11-05 (giovedì) al 2026-12-25 (venerdì): 50 giorni di calendario, 34 giorni lavorativi (esclusa la partenza, inclusa la data di arrivo).
+Assistente> Ci sono 50 giorni di calendario tra oggi (5 novembre 2026) e Natale (25 dicembre 2026).
+2026-11-05 16:32:37,296 INFO assistente.graph: ← modello [chiamata] date_info {'date': '2027-06-02'}
+2026-11-05 16:32:37,301 INFO assistente.graph: risultato strumento: 2027-06-02 (mercoledì): festività, Festa della Repubblica; non lavorativo.
+Assistente> Sì, il 2 giugno 2027 è festivo: è la Festa della Repubblica e non è un giorno lavorativo.
+```
+
+Con il servizio spento, dalla venv locale:
+
+```
+2026-11-05 17:27:02,853 INFO assistente.graph: ← modello [chiamata] days_between {'end': '12-25', 'start': '11-05'}
+2026-11-05 17:27:06,921 INFO assistente.graph: risultato strumento: Errore: servizio giorni non raggiungibile a http://localhost:8000.
+Assistente> Ci sono 50 giorni rimanenti a Natale.
+```
+
+La chat continua con la domanda successiva, ma **il modello ha ignorato l'errore**: ha risposto
+comunque con un numero (qui esatto, ma non venuto dallo strumento). Una risposta sulle date che
+segue un `Errore: servizio giorni non raggiungibile` non va presa per calcolata.
+
+Con `google/gemma-4-e2b` nella serie del 2026-11-05 (10 tentativi per domanda, una sessione nuova
+ciascuno, servizio avviato): «Quanti giorni mancano a Natale?» → `days_between` con `end`
+`2026-12-25` in 10 su 10; «Che data sarà tra 30 giorni?» → `add_days` con `days` 30, 10 su 10;
+«Qual è la scadenza a 10 giorni lavorativi da oggi?» → `add_business_days` con `days` 10, 10 su 10;
+«Il 2 giugno 2027 è festivo?» → `date_info` con `2027-06-02` e risposta che cita la Festa della
+Repubblica, 10 su 10; «Che giorno della settimana sarà il 30 febbraio?» → `date_info` con
+`Errore: data non valida…` in 9 su 10, nessuna data inventata (in un tentativo il modello ha
+risposto a mente che il giorno non esiste, senza chiamare lo strumento). Il modello chiama spesso prima `get_current_time`
+(sempre per «Natale»): il risultato è corretto, ma costa un giro in più. Dettagli in
+[`docs/registro-test.md`](docs/registro-test.md).
+
 ## Docker Compose
 
 L'immagine usa Python 3.14.9; LM Studio resta sull'host e il container lo raggiunge tramite
 `host.docker.internal` (Compose sostituisce `LMSTUDIO_BASE_URL` del `.env`). Serve il file `.env`
-(vedi Configurazione).
+(vedi Configurazione). Il servizio giorni è il servizio Compose `giorni`, che `assistente` richiede
+(`depends_on`) e raggiunge per nome con `GIORNI_BASE_URL=http://giorni:8000`; la sua porta è
+pubblicata solo su `127.0.0.1:8000`. Non avviare insieme il servizio locale e quello Docker: usano
+la stessa porta dell'host.
 
 ```powershell
 docker compose build
 docker compose run --rm assistente
 ```
 
-`run` (non `up`) collega il terminale alla chat. L'immagine dell'applicazione contiene solo il
-pacchetto `assistente` e le dipendenze: niente `.env`, test o `pytest`.
+`run` (non `up`) collega il terminale alla chat e avvia anche `giorni`, che resta in esecuzione
+dopo l'uscita. Per fermarlo: `docker compose stop giorni`. Per avviare e controllare solo il
+servizio:
+
+```powershell
+docker compose up -d --build giorni
+Invoke-RestMethod http://localhost:8000/salute
+docker compose stop giorni
+```
+
+L'immagine dell'applicazione contiene solo i pacchetti `assistente` e `servizio_giorni` e le
+dipendenze: niente `.env`, test o `pytest`.
 
 Per controllare che il container raggiunga LM Studio:
 
@@ -279,7 +389,8 @@ risultano `skipped`.
 
 ### Prove reali con LM Studio
 
-Con LM Studio attivo e `.env` configurato:
+Con LM Studio attivo, `.env` configurato e il servizio giorni avviato (la prova su `date_info`
+fallisce con «servizio giorni non avviato» se il servizio non risponde):
 
 ```powershell
 $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:RUN_LMSTUDIO_TESTS
@@ -289,8 +400,9 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
 
 1. Test automatici su 3.13 e 3.14: `python -m pytest` e
    `docker compose --profile test run --rm --build test` (tutti passed, le prove reali skipped).
-2. Prove reali con LM Studio (comando sopra): risposta, memoria della sessione, uso dell'orologio,
-   del convertitore e della calcolatrice.
+2. Prove reali con LM Studio (comando sopra, con il servizio giorni avviato): risposta, memoria
+   della sessione, uso dell'orologio, del convertitore, della calcolatrice e di `date_info`
+   (6 passed).
 3. In Docker, `docker compose run --rm assistente`:
    - «Che ore sono a Miami?» → su stderr compaiono `← modello [chiamata] get_current_time
      {'city': 'Miami'}` e un risultato con `America/New_York`; la risposta è coerente con l'ora
@@ -308,6 +420,13 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
      `Errore: divisione per zero.`; la risposta non inventa un numero;
    - «Quanti kg sono 5 km?» → `← modello [chiamata] convert_units` con `km` e `kg`, poi
      `Errore: unità incompatibili: 'km' è una lunghezza, 'kg' è una massa.`
+   - «Quanti giorni mancano a Natale?» → `← modello [chiamata] days_between` con `end` `12-25` o
+     `2026-12-25`, poi `Dal 2026-11-05 (giovedì) al 2026-12-25 (venerdì): 50 giorni di calendario, …`
+     (con la data del giorno della prova);
+   - «Il 2 giugno 2027 è festivo?» → `← modello [chiamata] date_info {'date': '2027-06-02'}`, poi
+     `2027-06-02 (mercoledì): festività, Festa della Repubblica; non lavorativo.`
+
+   Con `docker compose run` il servizio `giorni` parte da solo; alla fine `docker compose stop giorni`.
 
    Senza terminale interattivo si possono passare le righe da PowerShell:
 
@@ -327,6 +446,12 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `LM Studio non raggiungibile a …` (codice 1) | server di LM Studio spento o porta diversa | avvia il server in LM Studio; controlla `LMSTUDIO_BASE_URL` |
 | lo stesso messaggio solo in Docker | il container non raggiunge l'host | prova il comando di controllo della sezione Docker; se fallisce, in LM Studio attiva «Serve on Local Network» |
 | `Modello '…' non disponibile su …` (codice 1) | identificativo errato o modello non scaricato | usa uno degli identificativi elencati nel messaggio |
+| `risultato strumento: Errore: servizio giorni non raggiungibile a …` | il servizio giorni è spento, la porta è diversa o (in Docker) `giorni` non è partito | avvia `python -m uvicorn servizio_giorni.app:app --port 8000` e controlla `Invoke-RestMethod http://localhost:8000/salute`; verifica `GIORNI_BASE_URL`. Il modello può rispondere comunque con un numero: non viene dallo strumento |
+| `risultato strumento: Errore: data non valida '…'` | la data non esiste (es. `02-30`) o è scritta in un formato diverso da `AAAA-MM-GG` e `MM-GG` | nessuna azione: è il comportamento atteso, il modello riceve il motivo; se la data è reale riscrivila come `2027-06-02` |
+| `risultato strumento: Errore: giorni lavorativi e festività disponibili solo per gli anni 2020-2040.` oppure una risposta `festività non disponibili fuori dagli anni 2020-2040` | la data è fuori dagli anni di `servizio_giorni/festivita.json` | per quegli anni restano solo i giorni di calendario e il giorno della settimana |
+| `Errore: anno … fuori intervallo: ammessi 1900-2100.` | data o risultato fuori dai limiti del servizio | usa date tra il 1900 e il 2100 |
+| `Errore: risposta non valida dal servizio giorni (HTTP …)` | il servizio ha risposto con un codice o un testo inatteso | guarda i log del servizio nel terminale di uvicorn |
+| `GIORNI_BASE_URL mancante` (codice 2) | manca la variabile in `.env` | aggiungi `GIORNI_BASE_URL=http://localhost:8000` (vedi `.env.example`) |
 | `Errore: il modello non ha risposto…` durante la chat | LM Studio fermato o modello scaricato dalla memoria; con `Error code: 400`, anche un blocco di LM Studio mentre genera una chiamata (nel log del server: «Failed to generate a tool call … timed out», visto 2 volte su 56 il 2026-11-05) | ricarica il modello e ripeti la domanda: la cronologia è intatta |
 | nessuna riga `strumento richiesto` nei log | `LOG_LEVEL` sopra `INFO`, oppure il modello ha risposto senza usare lo strumento | imposta `LOG_LEVEL=INFO`; riformula chiedendo l'ora attuale |
 | `strumento richiesto: get_current_time {}` seguito da `fuso predefinito` per una domanda su una città | il modello non ha passato la città allo strumento | riformula citando esplicitamente la città, es. «Che ore sono a Miami?» |

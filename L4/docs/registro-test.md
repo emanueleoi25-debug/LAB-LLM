@@ -3,6 +3,94 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-05 (8) — commit `2501ad2`
+
+Giorni e scadenze (`feat/giorni-scadenze`): servizio FastAPI e calendario (`453d028`), strumenti
+`days_between`, `add_days`, `add_business_days`, `date_info` (`8738523`) e registrazione
+nell'agente (`5425e7d`), servizio in Docker Compose (`d44cf4b`), prova reale (`2501ad2`).
+Modello `google/gemma-4-e2b` in LM Studio sull'host; «oggi» è il 2026-11-05 (Europe/Rome).
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 379 passed, 6 skipped |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 379 passed, 6 skipped |
+| Prove reali con LM Studio, servizio avviato | venv locale | `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 6 passed (144 s) |
+| Prova reale `date_info` con il servizio spento | venv locale | `-m lmstudio -k date_info` | 1 failed: `servizio giorni non avviato: …` (atteso) |
+| Serie della spec §7 | venv locale, script usa e getta con `create_graph` + `ask`, una sessione per tentativo, servizio avviato | 60 tentativi | vedi tabella |
+| Servizio spento | venv locale, `python -m assistente` con le domande in ingresso | 2 domande | errore «non raggiungibile» e chat continua |
+| Checklist in Docker | container `assistente` + `giorni` + LM Studio sull'host | domande in ingresso a `docker compose run --rm -T --build assistente`, poi una seconda sessione | 10 domande, 8 come atteso e 2 senza la chiamata attesa (vedi sotto) |
+
+I 6 skipped delle suite senza modello sono le prove reali (5 prima di questa sessione, più
+`test_real_model_uses_date_info`). La prova reale ha avuto bisogno del servizio avviato
+(`python -m uvicorn servizio_giorni.app:app --port 8000`, fermato a fine serie).
+
+Serie della spec §7 (criterio: almeno 8 su 10 con lo strumento atteso e argomenti corretti per
+ciascuna domanda; controlli invariati). Esito con data di riferimento 2026-11-05:
+
+| Domanda | Tentativi | Esito |
+|---|---|---|
+| «Quanti giorni mancano a Natale?» | 10 | **10 su 10**: `days_between` con `end` `2026-12-25` (e `start` `2026-11-05` in 9) → `50 giorni di calendario, 34 giorni lavorativi`; in tutti i tentativi `get_current_time` chiamato prima |
+| «Che data sarà tra 30 giorni?» | 10 | **10 su 10**: `add_days` `days` 30 → `2026-12-05 (sabato)`; `start` `2026-11-05` in 3, preceduto da `get_current_time` |
+| «Qual è la scadenza a 10 giorni lavorativi da oggi?» | 10 | **10 su 10**: `add_business_days` `days` 10 → `2026-11-19 (giovedì); nessuna festività saltata`; `get_current_time` dopo la chiamata in 1 |
+| «Il 2 giugno 2027 è festivo?» | 10 | **10 su 10**: `date_info` `2027-06-02` → `Festa della Repubblica`, citata in tutte le risposte |
+| «Che giorno della settimana sarà il 30 febbraio?» | 10 | **9 su 10**: `date_info` con `02-30` (7) o `30-02` (2) → `Errore: data non valida …`, risposta «il 30 febbraio non esiste»; 1 tentativo senza chiamata (risposta a mente, «questo giorno non esiste»), nessuna data inventata |
+| «Che ore sono a Miami?» | 2 | `get_current_time` `{'city': 'Miami'}` → `America/New_York` |
+| «Quanto fa 1234 * 5678?» | 2 | `calculate` → `1234 * 5678 = 7006652` |
+| «Converti 10 miglia in km» | 2 | `convert_units` → `10 mi = 16.09 km (lunghezza)` |
+| «Quanto fa 7 diviso 0?» | 2 | `calculate` → `Errore: divisione per zero.` |
+| «Ciao, come stai?» | 2 | nessuno strumento |
+
+Nessuna chiamata scritta come testo, nessun errore di LM Studio. I criteri del §1 sono raggiunti
+per le quattro domande e per «30 febbraio». Osservazioni: il modello passa spesso `start`
+esplicito dopo aver chiamato `get_current_time` (giro in più, ma risultato uguale); in alcune
+risposte compare un attacco strano («Man mano che siamo al 2026-11-05, …», 2 su 10 per «Natale»)
+e date in formato diverso (`19-11-2026`): non sono errori dello strumento.
+
+Controllo aggiuntivo non previsto dalla spec, eseguito dopo la checklist in Docker (due domande
+senza strumento nella stessa sessione): 10 tentativi ciascuna, sessione nuova. «Quanto fa 7 diviso
+0?» → `calculate` `7 / 0` in 9 su 10 (1 risposta a mente: «non è possibile dividere per zero»);
+«Quanti kg sono 5 km?» → `convert_units` con l'errore `unità incompatibili` in 10 su 10. Nessun
+errore, nessuna chiamata scritta come testo.
+
+Servizio spento (venv locale, nessun processo sulla porta 8000): «Quanti giorni mancano a
+Natale?» → `get_current_time {}`, poi `days_between {'end': '12-25', 'start': '11-05'}` →
+`risultato strumento: Errore: servizio giorni non raggiungibile a http://localhost:8000.` (circa
+4 secondi); la chat è continuata: «Quanto fa 2 + 2?» → `calculate`, `2 + 2 = 4`. **Il modello ha
+ignorato l'errore**: ha risposto «Ci sono 50 giorni rimanenti a Natale.» (numero esatto, ma non
+venuto dallo strumento). La spec chiede solo l'errore dello strumento e la chat che continua
+(raggiunti); il comportamento del modello di fronte all'errore non è nei criteri e non è stato
+corretto.
+
+Checklist in Docker (`docker compose run --rm -T --build assistente`, servizio `giorni` avviato
+da Compose, nessun servizio locale sulla porta 8000): «Che ore sono a Miami?» →
+`get_current_time {'city': 'Miami'}`, `2026-11-05T11:29:09-05:00 (Miami, US, fuso
+America/New_York)`; «Quale città ti ho chiesto prima?» → «Mi hai chiesto l'ora a Miami.»; «Che ore
+sono?» → `get_current_time {}`, `fuso predefinito Europe/Rome`; «Quanti chilometri sono 10
+miglia?» → `convert_units` `miglia` → `km`, `10 mi = 16.09 km (lunghezza)`; «Quanto fa 1234 *
+5678?» → `calculate`, `1234 * 5678 = 7006652`; **«Quanto fa 7 diviso 0?» → nessuna chiamata**
+(risposta a mente corretta: «la divisione per zero non è definita»); **«Quanti kg sono 5 km?» →
+nessuna chiamata** (risposta a mente corretta: unità di categorie diverse); «Quanti giorni mancano
+a Natale?» → `days_between {'end': '2026-12-25', 'start': '2026-11-05'}`, `50 giorni di
+calendario, 34 giorni lavorativi`; «Il 2 giugno 2027 è festivo?» → `date_info {'date':
+'2027-06-02'}`, `Festa della Repubblica`; nuova sessione, «Quale città ti ho chiesto prima?» →
+«Non ho memoria di una città che mi abbia chiesto prima in questa conversazione.» Poi `docker
+compose stop giorni`: nessun container in esecuzione e nulla in ascolto sulla porta 8000. Le due
+domande senza chiamata sono sessioni lunghe (6 domande già in cronologia) e un solo tentativo
+ciascuna; la serie con sessione nuova qui sopra le dà 9 su 10 e 10 su 10, quindi non è una
+regressione dimostrata, ma la checklist 8 su 8 della sessione (7) non è stata ripetuta per queste
+due domande.
+
+Esito: criteri del §1 raggiunti (serie, servizio spento, suite su 3.13 e 3.14); controlli
+invariati nella serie.
+
+### Resta da provare
+
+- Checklist completa in Docker da terminale interattivo (senza `-T`).
+- Il comportamento del modello quando il servizio è spento: oggi può rispondere con un numero
+  senza usare l'errore (da concordare se serve una correzione).
+- «7 diviso 0» e «5 km in kg» dentro una sessione lunga in Docker (nella checklist di questa
+  sessione senza chiamata).
+
 ## Sessione del 2026-11-05 (7) — commit `c1b7a22`
 
 Correzione dei casi «impossibili» (spec della calcolatrice §8, Task 8-9): regola in coda al prompt

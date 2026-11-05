@@ -2057,7 +2057,17 @@ Approvato il 2026-11-05 (commit del piano richiesto dall'utente); metodo di esec
 Spec: `L4/docs/superpowers/specs/2026-11-05-giorni-scadenze-design.md`.
 Fonte: `L4/docs/superpowers/plans/2026-11-05-giorni-scadenze.md`.
 
-**Esito:** non ancora eseguito.
+**Esito (2026-11-05):** Task 1-6 eseguiti su `feat/giorni-scadenze` (`9823c65`…`d44cf4b`, prova
+reale `2501ad2`, docs nel commit seguente). Suite 379 passed / 6 skipped su 3.13.14 e 3.14.9;
+LM Studio 6/6 con il servizio avviato. Serie della spec §7 con `google/gemma-4-e2b` (60 tentativi,
+nessuna chiamata scritta come testo, nessun errore di LM Studio): «Natale» → `days_between` 10/10,
+«tra 30 giorni» → `add_days` 10/10, «10 giorni lavorativi» → `add_business_days` 10/10, «2 giugno
+2027» → `date_info` 10/10, «30 febbraio» → `Errore:` dello strumento 9/10 (1 risposta a mente,
+nessuna data inventata); controlli 10/10. Servizio spento: errore «non raggiungibile» e chat che
+continua, ma il modello ha risposto comunque con un numero. Checklist Docker: 8 su 10 come atteso;
+«7 diviso 0» e «5 km in kg» senza chiamata in una sessione lunga (da fresche: 9/10 e 10/10).
+`CLAUDE.md` non modificato: proposta in attesa dell'ok dell'utente. Non ancora riunito in `dev`,
+nessun push.
 
 ### Giorni e scadenze — piano di implementazione
 
@@ -2382,23 +2392,23 @@ def test_easter_and_monday_match_algorithm(holidays, year):
 - Modify: `tests/integration/test_lmstudio.py`, `README.md`, `docs/registro-test.md`,
   `Es.1/plan.md`; `CLAUDE.md` solo dopo l'ok dell'utente
 
-- [ ] **Step 1: test reale** `test_real_model_uses_date_info` in `tests/integration/test_lmstudio.py`:
+- [x] **Step 1: test reale** `test_real_model_uses_date_info` in `tests/integration/test_lmstudio.py`:
   se `GET <GIORNI_BASE_URL>/salute` fallisce → `pytest.fail("servizio giorni non avviato: …")`;
   «Il 2 giugno 2027 è festivo?» → un `ToolMessage` di `date_info` contiene `Festa della Repubblica`.
   Con il servizio avviato: `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` → 6 PASS.
   Commit `test(strumenti): prova reale dello strumento date_info`.
-- [ ] **Step 2: serie a mano** della spec §7 con uno script usa e getta nella scratchpad
+- [x] **Step 2: serie a mano** della spec §7 con uno script usa e getta nella scratchpad
   (`create_graph` + `ask`, una sessione nuova per tentativo, JSONL con chiamate, argomenti,
   risultati, risposta, chiamata scritta come testo, errore), servizio avviato. Criterio: almeno
   8 su 10 per ciascuna delle quattro domande e per «30 febbraio»; controlli invariati. Esito
   negativo: si riporta, non si corregge senza accordo.
-- [ ] **Step 3: servizio spento**: una domanda sulle date con il servizio fermo → `risultato
+- [x] **Step 3: servizio spento**: una domanda sulle date con il servizio fermo → `risultato
   strumento: Errore: servizio giorni non raggiungibile a http://localhost:8000.` nei log e la
   chat continua con la domanda successiva.
-- [ ] **Step 4: checklist in Docker** (`… | docker compose run --rm -T --build assistente`): la
+- [x] **Step 4: checklist in Docker** (`… | docker compose run --rm -T --build assistente`): la
   checklist precedente più «Quanti giorni mancano a Natale?» e «Il 2 giugno 2027 è festivo?»;
   poi `docker compose stop giorni`.
-- [ ] **Step 5: documentazione**: README (servizio e strumenti, avvio in due terminali e in
+- [x] **Step 5: documentazione**: README (servizio e strumenti, avvio in due terminali e in
   Docker, file delle festività, esempi dai log reali, diagnosi della spec §8, solo comandi
   eseguiti in questo piano); `docs/registro-test.md` (sessione con tutte le verifiche); proposta
   all'utente per `CLAUDE.md` (struttura con `servizio_giorni/` e `dates.py`, comando del
