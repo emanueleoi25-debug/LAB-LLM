@@ -9,10 +9,23 @@ services:
     environment:
       # LM Studio resta sull'host: dal container si raggiunge tramite host.docker.internal.
       LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
+      # Servizio giorni e scadenze: raggiunto per nome di servizio sulla rete di Compose.
+      GIORNI_BASE_URL: http://giorni:8000
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - giorni
     stdin_open: true
     tty: true
+
+  giorni:
+    build:
+      context: .
+      target: app
+    command: ["python", "-m", "uvicorn", "servizio_giorni.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      # Pubblicata solo su localhost: il servizio non è esposto alla rete locale.
+      - "127.0.0.1:8000:8000"
 
   test:
     build:
