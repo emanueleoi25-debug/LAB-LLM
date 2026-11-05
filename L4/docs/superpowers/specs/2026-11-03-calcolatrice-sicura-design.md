@@ -290,3 +290,82 @@ degli zeri iniziali; 5 sintassi e lista bianca; 6-10 durante il calcolo, con l'a
 (orologio, convertitore, calcolatrice) e `arithmetic.py` (analisi e calcolo sicuro delle
 espressioni aritmetiche). README e registro dei test aggiornati con questi comportamenti e con gli
 esiti delle nuove prove.
+
+## 8. Aggiunta del 2026-11-05: chiamare lo strumento anche quando il caso è «impossibile»
+
+Approvata dall'utente il 2026-11-05. Chiude il punto da chiarire del piano («7 diviso 0» riceve una risposta a mente) e
+quello analogo del convertitore («Quanti kg sono 5 km?»): la stessa correzione vale per entrambi
+gli strumenti e per il prompt di sistema. Integra il §4 e il §7.1; dove li contraddice, vale
+questa sezione. La specifica del convertitore rimanda qui (suo §8).
+
+### 8.1 Perché
+
+Con `google/gemma-4-e2b` il modello risponde a mente quando «sa» già che l'operazione non si può
+fare. Risposte corrette, ma non vengono dallo strumento e il criterio del §1 non è raggiunto.
+Due spike, solo gemma, una sessione nuova per tentativo (`docs/registro-test.md`, sessioni (5) e
+(6)); chiamate allo strumento atteso:
+
+| Variante | «7 diviso 0» | «5 km → kg» | Controlli |
+|---|---|---|---|
+| A — prompt e descrizioni attuali (3/11 e 5/11) | 4/6 e 4/6 | 1/6 e 1/6 | 10/10 |
+| B — regola nel prompt (8.2) | 2/6 | 2/6 | 10/10 |
+| D — frasi nelle descrizioni (8.3), prompt attuale | 3/6 (+1 chiamata come testo, 2 errori 400) | 3/6 | 10/10 |
+| **C — regola nel prompt e frasi nelle descrizioni** | **6/6** | **6/6** | 10/10 |
+
+Né la regola né le descrizioni bastano da sole; insieme sì. Si adotta C, con i testi esatti
+provati nello spike.
+
+### 8.2 Prompt di sistema
+
+Al prompt attuale, dopo la frase sulla calcolatrice, si aggiunge (preceduta da uno spazio):
+
+«Usa gli strumenti anche quando la risposta ti sembra ovvia, il calcolo è facile o l'operazione
+sembra impossibile (per esempio una divisione per zero o una conversione tra unità di categorie
+diverse): chiama comunque lo strumento e riporta il suo esito. Ogni domanda che chiede quanto vale
+una quantità in un'altra unità è una conversione.»
+
+### 8.3 Descrizioni degli strumenti
+
+In coda alle descrizioni attuali, preceduta da uno spazio:
+
+- `calculate`: «Se l'espressione non si può calcolare (per esempio una divisione per zero)
+  restituisce un errore che spiega il motivo: chiamalo comunque, non rispondere a mente.»
+- `convert_units`: «Se le unità sono di categorie diverse restituisce un errore che lo spiega:
+  chiamalo comunque, non rispondere a mente.»
+
+Codice degli strumenti, testi d'errore, grafo, modello e configurazione restano invariati.
+
+### 8.4 «3 settimane in ore»
+
+Dopo l'arrivo della calcolatrice «Quante ore ci sono in 3 settimane?» chiama sempre `calculate`
+(`3 * 7 * 24` → `504`, 30 su 30 negli spike) e mai `convert_units`. Il risultato viene da uno
+strumento ed è corretto: per questa domanda è accettato `calculate` con risultato 504 oppure
+`convert_units` con `wk` → `h` e risultato 504. Una risposta senza chiamata resta un esito
+negativo.
+
+### 8.5 Criteri
+
+Serie a mano con prompt e descrizioni nuovi, una sessione nuova per tentativo, solo
+`google/gemma-4-e2b`:
+
+- «Quanto fa 7 diviso 0?» → `calculate` con `Errore: divisione per zero.` in almeno 8 tentativi
+  su 10;
+- «Quanti kg sono 5 km?» → `convert_units` con l'errore delle unità incompatibili in almeno 8 su 10;
+- «Quante ore ci sono in 3 settimane?» → uno strumento con risultato 504 (8.4) in almeno 8 su 10;
+- controlli, 2 tentativi ciascuno, tutti come prima: «Quanto fa 1234 * 5678?» e «Quanto fa 2 + 2?»
+  → `calculate`; «Quanto fa 3,5 per 2?» → `3.5 * 2`; «Converti 10 miglia in km» e «Quanti
+  chilometri sono 10 miglia?» → `convert_units`; «Che ore sono a Miami?» → `get_current_time`;
+  «Ciao, come stai?» → nessuno strumento.
+
+Una chiamata scritta come testo conta come tentativo non riuscito. Un errore di LM Studio (es.
+400 o tempo scaduto) si conta a parte e si riporta, senza ripetere il tentativo. Se un criterio
+non è raggiunto, è un esito da riportare: prompt, descrizioni e modello non si cambiano senza un
+nuovo accordo.
+
+### 8.6 Documentazione
+
+README: righe della diagnosi su «7 diviso 0» e «3 settimane» aggiornate con l'esito della serie;
+la chiamata scritta come testo resta in diagnosi. `docs/registro-test.md`: spike del 2026-11-05
+(sessione (6)) ed esiti della serie. Chiusi i punti da chiarire, si chiede all'utente se
+cancellare i ledger `Es.1/.superpowers/sdd/2026-11-02-convertitore-unita/` e
+`2026-11-03-calcolatrice-sicura/`.

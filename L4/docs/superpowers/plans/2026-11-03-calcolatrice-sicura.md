@@ -424,3 +424,94 @@ def test_invisible_character_keeps_raw_char():   # evaluate("1​+2") → CHARAC
   il prompt.
 - **Resta da decidere:** provare la sola descrizione con il prompt attuale (modifica più piccola),
   poi la correzione come aggiunta approvata a spec e piano, insieme a quella del convertitore.
+
+- **Prova del 2026-11-05 (spike, solo `gemma-4-e2b`)**, sessione (6) del registro: sole frasi
+  nelle descrizioni con il prompt attuale (D), più il prompt attuale ripetuto come controllo (A).
+  «7 diviso 0» → `calculate`: A 4/6, D 3/6 (più 1 chiamata scritta come testo e 2 errori 400 di
+  LM Studio, «Failed to generate a tool call … timed out after 600000ms»). Le descrizioni da sole
+  non bastano.
+- **Decisione (2026-11-05):** si adotta la variante C (regola nel prompt e frasi nelle
+  descrizioni) con l'aggiunta qui sotto (spec §8), su `feat/calcolatrice-sicura`, insieme al
+  convertitore.
+
+---
+
+## Aggiunta del 2026-11-05: chiamare lo strumento anche nei casi «impossibili»
+
+Approvata dall'utente il 2026-11-05, esecuzione Native (spec §8). Vale anche per il convertitore (spec del convertitore §8): un solo
+intervento su prompt e descrizioni, su `feat/calcolatrice-sicura`.
+
+**Goal:** con `google/gemma-4-e2b`, «Quanto fa 7 diviso 0?» e «Quanti kg sono 5 km?» chiamano lo
+strumento e riportano il suo errore, invece di rispondere a mente.
+
+**Architecture:** solo testi. `SYSTEM_PROMPT` in `cli.py` riceve una frase finale (§8.2);
+`CALCULATOR_DESCRIPTION` e `CONVERTER_DESCRIPTION` in `tools.py` ricevono una frase in coda (§8.3).
+Codice degli strumenti, grafo, modello, configurazione, Docker invariati.
+
+**Global Constraints dell'aggiunta** (oltre a quelle in cima, dove valgono):
+- Testi esatti del §8.2 e §8.3, ciascuno aggiunto dopo uno spazio; le frasi già presenti non
+  cambiano. La descrizione della calcolatrice in cima a questo piano è superata dal §7.1 e dal §8.3.
+- Nessun file nuovo nel pacchetto, nessuna dipendenza, nessun test reale nuovo in
+  `tests/integration` (un tentativo singolo non misura un comportamento che oscilla): la misura è
+  la serie del §8.5.
+- Solo `google/gemma-4-e2b` nelle prove reali.
+
+**Review Focus dell'aggiunta:**
+- La regola «usa gli strumenti anche quando la risposta ti sembra ovvia» non deve far chiamare
+  strumenti per una domanda senza strumento: «Ciao, come stai?» → nessuna chiamata (Task 9).
+- «Che ore sono a Miami?» deve restare `get_current_time` con `city`, non un calcolo (Task 9).
+- «Quanto fa 3,5 per 2?» deve restare `3.5 * 2`: la descrizione allungata non deve far perdere la
+  regola su «per» (Task 9).
+- Una chiamata scritta come testo (`calculate{expression:<|"|>…`) va contata come insuccesso e
+  riportata, non scartata (Task 9).
+- Gli errori di LM Studio (400, tempo scaduto) si contano a parte: non vanno nascosti ripetendo
+  il tentativo (Task 9).
+
+### Task 8: prompt e descrizioni (spec §8.2-8.3)
+
+**Files:**
+- Modify: `assistente/cli.py` (`SYSTEM_PROMPT`)
+- Modify: `assistente/tools.py` (`CALCULATOR_DESCRIPTION`, `CONVERTER_DESCRIPTION`)
+- Test: `tests/test_cli.py`, `tests/test_tools.py`
+
+- [ ] **Step 1: aggiornare e aggiungere i test**
+  - `tests/test_tools.py::test_calculator_description_is_exact`: testo attuale (§7.1) seguito da
+    `" Se l'espressione non si può calcolare (per esempio una divisione per zero) restituisce un
+    errore che spiega il motivo: chiamalo comunque, non rispondere a mente."`
+  - nuovo `tests/test_tools.py::test_converter_description_is_exact`: `CONVERTER_DESCRIPTION ==`
+    testo attuale del §2 del convertitore seguito da `" Se le unità sono di categorie diverse
+    restituisce un errore che lo spiega: chiamalo comunque, non rispondere a mente."`
+  - `tests/test_cli.py::test_system_prompt_mentions_calculator`: da `endswith` a `in` sulla stessa
+    frase.
+  - nuovo `tests/test_cli.py::test_system_prompt_asks_to_call_tools_anyway`:
+    `SYSTEM_PROMPT.endswith(" Usa gli strumenti anche quando … è una conversione.")` con il testo
+    esatto del §8.2.
+- [ ] **Step 2:** `python -m pytest tests/test_cli.py tests/test_tools.py -v` → FAIL su tre dei
+  quattro test del passo 1, per la coda mancante (`test_system_prompt_mentions_calculator` con
+  `in` passa già).
+- [ ] **Step 3:** aggiungere le frasi in `tools.py` e in `cli.py` (frammenti di stringa
+  concatenati, come gli altri).
+- [ ] **Step 4:** `python -m pytest` → tutto PASS (attesi 263 passed, 5 skipped: due test nuovi
+  rispetto ai 261 attuali).
+- [ ] **Step 5:** commit `feat(strumenti): calcolatrice e convertitore chiamati anche nei casi impossibili`
+  (`git add assistente/cli.py assistente/tools.py tests/test_cli.py tests/test_tools.py`).
+
+### Task 9: serie reale, verifica completa e documentazione (spec §8.4-8.6)
+
+- [ ] **Step 1: serie del §8.5** con uno script usa e getta nella scratchpad (non nel repo):
+  `create_graph(load_settings())` e `ask(graph, new_history(), domanda)`, una sessione nuova per
+  tentativo; 10 tentativi su «7 diviso 0», «5 km → kg», «3 settimane in ore», 2 per ciascun
+  controllo; JSONL con chiamate, argomenti, risultati, risposta, chiamata scritta come testo,
+  errore. Esito atteso: almeno 8/10 sulle tre domande, controlli invariati. Un esito negativo si
+  riporta e si discute, non si corregge.
+- [ ] **Step 2:** suite 3.13 (`python -m pytest`) e 3.14
+  (`docker compose --profile test run --rm --build test`) → 263 passed, 5 skipped.
+- [ ] **Step 3:** `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` → 5 PASS.
+- [ ] **Step 4:** checklist in Docker (`… | docker compose run --rm -T --build assistente`) con
+  le domande della checklist precedente più «Quanto fa 7 diviso 0?» e «Quanti kg sono 5 km?».
+- [ ] **Step 5: documentazione**: `docs/registro-test.md` (sessione (7): serie del §8.5 e
+  verifica; la sessione (6) con lo spike del 5/11 è già scritta); README, righe di diagnosi su «7 diviso 0», «3 settimane» e sezioni dei
+  due strumenti con l'esito; punti da chiarire dei due piani segnati come chiusi con l'esito;
+  esito in `Es.1/plan.md` (fuori dai commit). Commit `docs: esito della correzione sui casi impossibili`.
+- [ ] **Step 6:** chiedere all'utente l'ok per il merge in `dev` e se cancellare i due ledger
+  (§8.6). Push solo su richiesta, dopo la verifica completa rieseguita.

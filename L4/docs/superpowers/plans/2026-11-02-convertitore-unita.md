@@ -397,3 +397,9 @@ Approvato il 2026-11-03 dopo la revisione finale (minori: valori estremi con cen
 - **Resta da decidere:** provare la sola descrizione con il prompt attuale, se accettare
   `calculate` come strumento valido per «3 settimane in ore» nel criterio della spec, e la
   correzione come aggiunta approvata a spec e piano, insieme a quella della calcolatrice.
+- **Prova del 2026-11-05 (spike, solo `gemma-4-e2b`)**, sessione (6) del registro: sole frasi
+  nelle descrizioni con il prompt attuale. «Quanti kg sono 5 km?» → `convert_units`: prompt
+  attuale 1/6, sole descrizioni 3/6. «3 settimane in ore» → `calculate` 504 in 12 su 12.
+- **Decisione (2026-11-05):** variante C (regola nel prompt e frasi nelle descrizioni);
+  «3 settimane in ore» con `calculate` e risultato 504 è accettato (spec §8). Esecuzione nei
+  Task 8-9 del piano della calcolatrice, su `feat/calcolatrice-sicura`.

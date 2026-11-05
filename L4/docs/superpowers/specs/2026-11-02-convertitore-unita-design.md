@@ -242,3 +242,19 @@ stampati con centinaia di cifre inventate (`1e300 km → m`) e `1e306 km → km`
   7. risultato diverso da zero sotto 1e-15 → `Errore: il risultato è troppo piccolo per essere rappresentato.`
 - Con ingressi fino a 1e15 la conversione verso l'unità base non supera i limiti dei float
   (caso peggiore t → mg, circa 1e24): il controllo sul risultato non finito non serve più.
+
+## 8. Aggiunta del 2026-11-05: chiamare lo strumento anche quando le unità sono incompatibili
+
+Approvata dall'utente il 2026-11-05. Chiude il punto da chiarire del piano («Quanti kg sono 5 km?» riceve una risposta a
+mente). La correzione è comune a calcolatrice e convertitore ed è descritta per intero nel §8 della
+specifica della calcolatrice (`2026-11-03-calcolatrice-sicura-design.md`): regola nel prompt di
+sistema (§8.2), frase in coda a questa descrizione (§8.3), criteri (§8.5).
+
+- Descrizione di `convert_units`: alla descrizione del §2 si aggiunge in coda «Se le unità sono di
+  categorie diverse restituisce un errore che lo spiega: chiamalo comunque, non rispondere a
+  mente.»
+- Serie a mano del §5, voce «settimane → ore»: è accettato `calculate` con risultato 504, oltre a
+  `convert_units` con `wk` → `h` (§8.4 della calcolatrice). Una risposta senza chiamata resta un
+  esito negativo.
+- Il criterio del §1 su «Quanti kg sono 5 km?» resta invariato; si considera raggiunto con
+  almeno 8 tentativi su 10 nella serie del §8.5 della calcolatrice.

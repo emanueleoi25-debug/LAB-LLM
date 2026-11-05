@@ -3,6 +3,40 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-05 (6) — commit `1730c3c`
+
+Secondo spike sui punti da chiarire, eseguito con il permesso dell'utente: variante **D** = prompt
+attuale più le sole frasi della variante C in coda alle descrizioni di `calculate` e
+`convert_units` (sessione (5)), con la variante **A** (prompt e descrizioni attuali) ripetuta come
+controllo. Codice del progetto invariato; script usa e getta fuori dal repo (`create_graph` +
+`ask`, descrizioni sostituite prima di costruire gli strumenti), una sessione nuova per tentativo,
+solo `google/gemma-4-e2b` in LM Studio sull'host.
+
+| Domanda (strumento atteso) | A | D |
+|---|---|---|
+| «Quanto fa 7 diviso 0?» (`calculate`) | 4/6 | 3/6 |
+| «Quanti kg sono 5 km?» (`convert_units`) | 1/6 | 3/6 |
+| «Quante ore ci sono in 3 settimane?» (uno strumento, 504) | 6/6 `calculate` | 6/6 `calculate` |
+| Controlli (1234 * 5678, 3,5 per 2, 10 miglia in km, Miami, saluto) | 10/10 | 10/10 |
+
+56 tentativi. Nella D, su «7 diviso 0»: 1 chiamata scritta come testo
+(`calculate{expression:<|"|>7 / 0<|"|>}`, arrivata all'utente come risposta) e 2 errori
+`400` di LM Studio; nel log del server, «Failed to generate a tool call (this tool call will be
+omitted from the response): Engine protocol predict stream timed out after 600000ms» seguito da
+«Error: Channel Error». Con chiamata, gli esiti sono quelli attesi (`Errore: divisione per zero.`,
+`Errore: unità incompatibili: 'km' è una lunghezza, 'kg' è una massa.`, `3 * 7 * 24 = 504` o
+`21 * 24 = 504`). Le risposte senza chiamata sono corrette.
+
+Lettura: le sole descrizioni non bastano (3/6 e 3/6), come la sola regola nel prompt (B, 2/6 e
+2/6); solo la combinazione C ha dato 6/6 e 6/6. A conferma la sessione (5) (4/6 e 1/6).
+Decisione dell'utente: adottare C (spec della calcolatrice §8) e accettare `calculate` per
+«3 settimane in ore».
+
+### Resta da provare
+
+- Correzione C nel codice e serie del §8.5 (10 tentativi per domanda).
+- Checklist completa in Docker da terminale interattivo (senza `-T`).
+
 ## Sessione del 2026-11-03 (5) — commit `3dd9141`
 
 Prova (spike) sui punti da chiarire di calcolatrice e convertitore: il modello risponde a mente
