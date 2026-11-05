@@ -433,6 +433,9 @@ def test_invisible_character_keeps_raw_char():   # evaluate("1​+2") → CHARAC
 - **Decisione (2026-11-05):** si adotta la variante C (regola nel prompt e frasi nelle
   descrizioni) con l'aggiunta qui sotto (spec §8), su `feat/calcolatrice-sicura`, insieme al
   convertitore.
+- **Chiuso (2026-11-05):** con la correzione C (Task 8, `c1b7a22`) «7 diviso 0» chiama `calculate`
+  in 10 tentativi su 10, «5 km → kg» `convert_units` in 10 su 10; controlli invariati, nessuna
+  chiamata scritta come testo (registro, sessione (7)).
 
 ---
 

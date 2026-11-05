@@ -159,11 +159,12 @@ Esempio dal container:
 Assistente> 10 miglia sono circa 16.09 chilometri.
 ```
 
-Con `google/gemma-4-e2b` il modello non chiama sempre lo strumento. Nelle prove del 2026-11-03
-ha risposto a mente, e in modo corretto, a «Quante ore ci sono in 3 settimane?» e a «Quanti kg
-sono 5 km?» (4 tentativi su 4 per ciascuna domanda). Riformulate come «Converti 3 settimane in
-ore» e «Converti 5 km in kg», hanno prodotto la chiamata allo strumento in 2 tentativi su 2, con il
-risultato `3 wk = 504.00 h (tempo)` e l'errore `unità incompatibili`. Dettagli in
+Con `google/gemma-4-e2b` e i testi di prima il modello rispondeva a mente a «Quanti kg sono
+5 km?» (strumento chiamato 1 volta su 6). Ora il prompt chiede di usare gli strumenti anche
+quando l'operazione sembra impossibile e la descrizione dice di chiamare lo strumento anche con
+unità di categorie diverse: nella serie del 2026-11-05 la domanda ha chiamato `convert_units` in
+10 tentativi su 10, con l'errore `unità incompatibili`. «Quante ore ci sono in 3 settimane?» usa
+la calcolatrice (`3 * 7 * 24 = 504`, 10 su 10), che è un esito accettato. Dettagli in
 [`docs/registro-test.md`](docs/registro-test.md).
 
 ## Strumento calcolatrice
@@ -232,10 +233,11 @@ Assistente> $1234 \times 5678 = 7.006.652$
 Nelle prove del 2026-11-03 `google/gemma-4-e2b` ha chiamato lo strumento anche per «Quanto fa
 2 + 2?». La descrizione dello strumento spiega che «per» e «x» indicano la moltiplicazione: senza
 questa frase il modello passava `3.5 / 2` per «Quanto fa 3,5 per 2?» (5 tentativi su 5), con la
-frase passa `3.5 * 2` (6 su 6). Per «Quanto fa 7 diviso 0?» invece risponde quasi sempre a mente
-(«la divisione per zero è indefinita»), con la descrizione nuova come con quella vecchia: lo
-strumento è stato chiamato 1 volta su 6 con la nuova e 1 su 5 con la vecchia (che nella prima
-serie lo aveva chiamato 1 volta su 1). Dettagli in
+frase passa `3.5 * 2` (6 su 6, e 2 su 2 nella serie del 2026-11-05). Per «Quanto fa 7 diviso 0?»
+il modello rispondeva spesso a mente («la divisione per zero è indefinita»). Con la regola nel
+prompt e la frase in coda alla descrizione («se l'espressione non si può calcolare … chiamalo
+comunque») ha chiamato `calculate` in 10 tentativi su 10, con `Errore: divisione per zero.`; né
+la sola regola né la sola frase bastavano. Dettagli in
 [`docs/registro-test.md`](docs/registro-test.md).
 
 ## Docker Compose
@@ -301,7 +303,11 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
      risposta contiene 16.09;
    - «Quanto fa 1234 * 5678?» → su stderr compare `← modello [chiamata] calculate` con
      un'espressione equivalente a `1234 * 5678`, poi il risultato `1234 * 5678 = 7006652`; la
-     risposta contiene 7006652 (anche scritto `7.006.652`).
+     risposta contiene 7006652 (anche scritto `7.006.652`);
+   - «Quanto fa 7 diviso 0?» → `← modello [chiamata] calculate` con `7 / 0` e il risultato
+     `Errore: divisione per zero.`; la risposta non inventa un numero;
+   - «Quanti kg sono 5 km?» → `← modello [chiamata] convert_units` con `km` e `kg`, poi
+     `Errore: unità incompatibili: 'km' è una lunghezza, 'kg' è una massa.`
 
    Senza terminale interattivo si possono passare le righe da PowerShell:
 
@@ -321,17 +327,17 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `LM Studio non raggiungibile a …` (codice 1) | server di LM Studio spento o porta diversa | avvia il server in LM Studio; controlla `LMSTUDIO_BASE_URL` |
 | lo stesso messaggio solo in Docker | il container non raggiunge l'host | prova il comando di controllo della sezione Docker; se fallisce, in LM Studio attiva «Serve on Local Network» |
 | `Modello '…' non disponibile su …` (codice 1) | identificativo errato o modello non scaricato | usa uno degli identificativi elencati nel messaggio |
-| `Errore: il modello non ha risposto…` durante la chat | LM Studio fermato o modello scaricato dalla memoria | ricarica il modello e ripeti la domanda: la cronologia è intatta |
+| `Errore: il modello non ha risposto…` durante la chat | LM Studio fermato o modello scaricato dalla memoria; con `Error code: 400`, anche un blocco di LM Studio mentre genera una chiamata (nel log del server: «Failed to generate a tool call … timed out», visto 2 volte su 56 il 2026-11-05) | ricarica il modello e ripeti la domanda: la cronologia è intatta |
 | nessuna riga `strumento richiesto` nei log | `LOG_LEVEL` sopra `INFO`, oppure il modello ha risposto senza usare lo strumento | imposta `LOG_LEVEL=INFO`; riformula chiedendo l'ora attuale |
 | `strumento richiesto: get_current_time {}` seguito da `fuso predefinito` per una domanda su una città | il modello non ha passato la città allo strumento | riformula citando esplicitamente la città, es. «Che ore sono a Miami?» |
 | `risultato strumento: Errore: città sconosciuta '…'` | la città non è nell'archivio (meno di 5.000 abitanti o nome non riconosciuto) | usa il nome di una città vicina più grande, oppure un nome IANA come `America/New_York` |
 | `risultato strumento: Errore: unità sconosciuta '…'` | il modello ha passato un'unità fuori tabella o scritta in un modo non previsto | usa un simbolo o un nome dell'elenco; il modello riceve l'elenco delle unità ammesse e può riprovare |
 | `risultato strumento: Errore: unità incompatibili: …` | le due unità sono di categorie diverse (es. km e kg) | nessuna conversione è possibile: riformula con due unità della stessa categoria |
-| risposta a una conversione senza riga `strumento richiesto: convert_units` | il modello ha calcolato a mente (succede con domande come «ore in 3 settimane») | riformula nominando entrambe le unità, es. «Converti 3 settimane in ore» |
+| risposta a una conversione senza riga `strumento richiesto: convert_units` | il modello ha usato `calculate` (normale per «ore in 3 settimane») oppure ha risposto a mente (con i testi attuali non è successo nella serie del 2026-11-05) | se manca anche `calculate`, la risposta non viene da uno strumento: riformula nominando entrambe le unità, es. «Converti 3 settimane in ore» |
 | `risultato strumento: Errore: carattere non ammesso '…'` o `espressione non valida` | il modello ha scritto l'espressione con lettere, simboli non previsti o sintassi errata | nessuna azione: il modello riceve la sintassi ammessa e può riprovare; se si ripete, riformula con gli operatori, es. «Quanto fa 3 * 4?» |
 | `calculate` chiamato con l'operatore sbagliato | il modello ha frainteso la domanda (prima della descrizione attuale, con gemma-4-e2b «per» diventava divisione) | riformula con un verbo esplicito, es. «3,5 moltiplicato 2», oppure scrivi l'operazione con i simboli |
-| risposta a un calcolo senza riga `strumento richiesto: calculate` | il modello ha risposto a mente (succede quasi sempre con «7 diviso 0») | controlla la risposta: non è stata calcolata dallo strumento. Una formulazione che faccia sempre chiamare lo strumento non è ancora stata verificata (punto da chiarire nel piano della calcolatrice) |
-| `Assistente> calculate{expression:<\|"\|>…<\|"\|>}<tool_call\|>` | il modello ha scritto la chiamata come testo invece di una vera chiamata, e LM Studio non l'ha riconosciuta (visto 1 volta su 6 con «7 diviso 0») | ripeti la domanda: la chiamata non è stata eseguita |
+| risposta a un calcolo senza riga `strumento richiesto: calculate` | il modello ha risposto a mente (con i testi di prima succedeva spesso con «7 diviso 0»; con quelli attuali 0 volte su 10 il 2026-11-05) | controlla la risposta: non è stata calcolata dallo strumento; ripeti la domanda |
+| `Assistente> calculate{expression:<\|"\|>…<\|"\|>}<tool_call\|>` | il modello ha scritto la chiamata come testo invece di una vera chiamata, e LM Studio non l'ha riconosciuta (visto con «7 diviso 0» nelle prove precedenti alla correzione; mai nella serie con i testi attuali) | ripeti la domanda: la chiamata non è stata eseguita |
 | `← modello [chiamata non valida] …` e `Errore: argomenti non validi…` | il modello ha prodotto argomenti non interpretabili | nessuna azione: il modello riceve l'errore e può riprovare entro `MAX_TOOL_STEPS` giri; se si ripete, riformula la domanda |
 
 Nel container i log riportano l'ora in UTC; le risposte dell'orologio usano invece il fuso richiesto.

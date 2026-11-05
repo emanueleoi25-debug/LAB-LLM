@@ -3,6 +3,55 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-05 (7) — commit `c1b7a22`
+
+Correzione dei casi «impossibili» (spec della calcolatrice §8, Task 8-9): regola in coda al prompt
+di sistema e frase in coda alle descrizioni di `calculate` e `convert_units` (`c1b7a22`).
+Modello `google/gemma-4-e2b` in LM Studio sull'host.
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 263 passed, 5 skipped |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 263 passed, 5 skipped |
+| Prove reali con LM Studio | venv locale | `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 5 passed (87 s) |
+| Serie del §8.5 | venv locale, script usa e getta con `create_graph` + `ask`, codice del progetto invariato, una sessione per tentativo | 44 tentativi | 44 su 44 |
+| Checklist in Docker | container `assistente` + LM Studio sull'host | domande in ingresso a `docker compose run --rm -T --build assistente`, poi una seconda sessione | 8 su 8 |
+
+Serie del §8.5 (criterio: almeno 8 su 10 sulle tre domande, controlli invariati):
+
+| Domanda | Tentativi | Esito |
+|---|---|---|
+| «Quanto fa 7 diviso 0?» | 10 | `calculate` `7 / 0` → `Errore: divisione per zero.` in 10 su 10; risposte come «Non è possibile eseguire la divisione per zero.» |
+| «Quanti kg sono 5 km?» | 10 | `convert_units` `km` → `kg` → `Errore: unità incompatibili: 'km' è una lunghezza, 'kg' è una massa.` in 10 su 10 |
+| «Quante ore ci sono in 3 settimane?» | 10 | `calculate` → 504 in 10 su 10 (`3 * 7 * 24` 8 volte, `21 * 24` una, `3 * 7` poi `21 * 24` una) |
+| «Quanto fa 1234 * 5678?», «Quanto fa 2 + 2?» | 2 + 2 | `calculate`, `7006652` e `4` |
+| «Quanto fa 3,5 per 2?» | 2 | `calculate` `3.5 * 2` → 7 |
+| «Converti 10 miglia in km», «Quanti chilometri sono 10 miglia?» | 2 + 2 | `convert_units` → `10 mi = 16.09 km (lunghezza)` |
+| «Che ore sono a Miami?» | 2 | `get_current_time` `{'city': 'Miami'}` → `America/New_York` |
+| «Ciao, come stai?» | 2 | nessuno strumento |
+
+Nessuna chiamata scritta come testo, nessun errore di LM Studio. Due tentativi per controllo sono
+una prova debole per «3,5 per 2»: la frase nuova della descrizione usa «divisione per zero»,
+mentre la stessa descrizione dice che «per» indica la moltiplicazione (osservazione della
+revisione finale); finora nessun effetto (2 su 2 qui, 2 su 2 negli spike).
+
+Checklist in Docker: «Che ore sono a Miami?» → `get_current_time {'city': 'Miami'}`, 09:53
+`America/New_York`, coerente con l'ora reale; «Quale città ti ho chiesto prima?» → «Mi hai chiesto
+l'ora a Miami.»; «Che ore sono?» → `fuso predefinito Europe/Rome`; «Quanti chilometri sono 10
+miglia?» → `10 mi = 16.09 km (lunghezza)`; «Quanto fa 1234 * 5678?» → `1234 * 5678 = 7006652`;
+«Quanto fa 7 diviso 0?» → `calculate {'expression': '7 / 0'}`, `Errore: divisione per zero.`;
+«Quanti kg sono 5 km?» → `convert_units`, `Errore: unità incompatibili: …`; nuova sessione,
+«Quale città ti ho chiesto prima?» → «Non mi hai chiesto alcuna città prima.»
+
+Revisione finale (subagent): 0 critici, 0 importanti, 2 minori (l'osservazione su «per» qui sopra;
+caselle del piano non spuntate).
+
+Esito: criteri del §8.5 raggiunti; i punti da chiarire di calcolatrice e convertitore sono chiusi.
+
+### Resta da provare
+
+- Checklist completa in Docker da terminale interattivo (senza `-T`).
+
 ## Sessione del 2026-11-05 (6) — commit `1730c3c`
 
 Secondo spike sui punti da chiarire, eseguito con il permesso dell'utente: variante **D** = prompt

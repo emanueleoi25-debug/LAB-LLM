@@ -403,3 +403,6 @@ Approvato il 2026-11-03 dopo la revisione finale (minori: valori estremi con cen
 - **Decisione (2026-11-05):** variante C (regola nel prompt e frasi nelle descrizioni);
   «3 settimane in ore» con `calculate` e risultato 504 è accettato (spec §8). Esecuzione nei
   Task 8-9 del piano della calcolatrice, su `feat/calcolatrice-sicura`.
+- **Chiuso (2026-11-05):** con la correzione C (Task 8 del piano della calcolatrice, `c1b7a22`)
+  «Quanti kg sono 5 km?» chiama `convert_units` in 10 tentativi su 10; «3 settimane in ore» usa
+  `calculate` con risultato 504 in 10 su 10 (registro, sessione (7)).
