@@ -2,7 +2,11 @@ import pytest
 
 from assistente.config import ConfigError, load_settings
 
-BASE = {"LMSTUDIO_BASE_URL": "http://localhost:1234/v1", "LMSTUDIO_MODEL": "google/gemma-4-e2b"}
+BASE = {
+    "LMSTUDIO_BASE_URL": "http://localhost:1234/v1",
+    "LMSTUDIO_MODEL": "google/gemma-4-e2b",
+    "GIORNI_BASE_URL": "http://localhost:8000",
+}
 
 
 def test_missing_required_variables_are_named():
@@ -21,6 +25,18 @@ def test_values_are_read_and_stripped():
     assert (s.base_url, s.model, s.log_level) == ("http://localhost:1234/v1", "google/gemma-4-e2b", "INFO")
 
 
+def test_missing_giorni_base_url():
+    env = {k: v for k, v in BASE.items() if k != "GIORNI_BASE_URL"}
+    with pytest.raises(ConfigError) as err:
+        load_settings(env)
+    assert "GIORNI_BASE_URL mancante" in str(err.value)
+
+
+def test_giorni_base_url_is_read():
+    s = load_settings({**BASE, "GIORNI_BASE_URL": " http://localhost:8000 "})
+    assert s.giorni_base_url == "http://localhost:8000"
+
+
 def test_log_level_is_normalized_and_validated():
     assert load_settings({**BASE, "LOG_LEVEL": "debug"}).log_level == "DEBUG"
     with pytest.raises(ConfigError, match="LOG_LEVEL"):
@@ -29,7 +45,9 @@ def test_log_level_is_normalized_and_validated():
 
 def test_environment_wins_over_dotenv(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text(
-        "LMSTUDIO_BASE_URL=http://file/v1\nLMSTUDIO_MODEL=dal-file\n", encoding="utf-8"
+        "LMSTUDIO_BASE_URL=http://file/v1\nLMSTUDIO_MODEL=dal-file\n"
+        "GIORNI_BASE_URL=http://localhost:8000\n",
+        encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("LMSTUDIO_MODEL", "dall-ambiente")
