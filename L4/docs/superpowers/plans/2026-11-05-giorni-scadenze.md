@@ -350,7 +350,7 @@ def test_easter_and_monday_match_algorithm(holidays, year):
 
 ## Correzioni dopo la revisione finale (aggiunta del 2026-11-05)
 
-Stato: proposta del 2026-11-05, **in attesa di approvazione** dell'utente.
+Stato: proposta del 2026-11-05, **approvata** dall'utente il 2026-11-06 (esecuzione inline).
 
 Spec §9. Stessi Global Constraints del piano. Suite attuale: 379 passed, 6 skipped.
 

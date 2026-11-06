@@ -2073,8 +2073,8 @@ nessun push.
 **Revisione finale (2026-11-05, subagent opus):** «mergeabile con correzioni». 0 critici, 3 importanti
 (`_call` non cattura gli errori HTTP diversi dal trasporto; `localhost` → `::1` su Windows, circa 2 s
 per chiamata; rischio `GG-MM` passato come `MM-GG`), 4 minori. L'utente ha scelto di correggere i
-primi due: spec §9 e Task 7-8 qui sotto, **in attesa di approvazione**. `CLAUDE.md`: l'utente
-approva la proposta «con modifiche», da precisare.
+primi due: spec §9 e Task 7-8 qui sotto, approvati il 2026-11-06 (esecuzione inline). `CLAUDE.md`:
+l'utente approva la proposta «con modifiche», da precisare: decisione rimandata a prima del merge.
 
 ### Giorni e scadenze — piano di implementazione
 
@@ -2426,7 +2426,7 @@ def test_easter_and_monday_match_algorithm(holidays, year):
 
 #### Correzioni dopo la revisione finale (aggiunta del 2026-11-05)
 
-Stato: proposta del 2026-11-05, **in attesa di approvazione** dell'utente.
+Stato: proposta del 2026-11-05, **approvata** dall'utente il 2026-11-06 (esecuzione inline).
 
 Spec §9. Stessi Global Constraints del piano. Suite attuale: 379 passed, 6 skipped.
 

@@ -287,7 +287,7 @@ con `parametro '<nome>' mancante o non valido.` Nessun 500 per input dell'utente
 
 ## 9. Correzioni dopo la revisione finale (2026-11-05)
 
-Stato: proposta del 2026-11-05, **in attesa di approvazione** dell'utente.
+Stato: proposta del 2026-11-05, **approvata** dall'utente il 2026-11-06 (esecuzione inline).
 
 Revisione finale del branch (subagent, modello opus): 0 critici, 3 importanti, 4 minori. L'utente ha
 scelto di correggere i primi due importanti; il terzo (date `GG-MM` passate come `MM-GG`) e i minori
