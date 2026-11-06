@@ -3,6 +3,57 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-06 (9) — commit `518f67a`
+
+Correzioni dopo la revisione finale di giorni e scadenze (spec §9): nessuna eccezione HTTP dagli
+strumenti delle date (`b2ef580`) e `GIORNI_BASE_URL=http://127.0.0.1:8000` in `.env.example`,
+README e `.env` locale (`518f67a`). Modello `google/gemma-4-e2b` in LM Studio sull'host; «oggi» è
+il 2026-11-06 (Europe/Rome).
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 383 passed, 6 skipped |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 383 passed, 6 skipped |
+| Prove reali con LM Studio, servizio avviato | venv locale, `GIORNI_BASE_URL=http://127.0.0.1:8000` | `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 6 passed (170 s) |
+| Tempi di `date_info` | venv locale, servizio avviato, script usa e getta con `make_date_tools` | 3 chiamate per indirizzo | vedi sotto |
+| Servizio spento | venv locale, `python -m assistente` con le domande in ingresso | 2 domande | errore «non raggiungibile» a `127.0.0.1` e chat continua |
+
+I 4 test in più sono `test_http_error_becomes_invalid_response` (uno per strumento: il trasporto
+solleva `httpx.DecodingError` e il risultato è `Errore: risposta non valida dal servizio giorni.`).
+
+Tempi di una chiamata a `date_info {'date': '2026-12-25'}` con il servizio locale avviato
+(`python -m uvicorn servizio_giorni.app:app --port 8000`, che ascolta solo su `127.0.0.1`):
+
+| Indirizzo | Chiamate di seguito | Chiamate a 6 s l'una dall'altra |
+|---|---|---|
+| `http://localhost:8000` | 2,04 s la prima, poi 0,00 s | 2,05 s, 2,02 s, 2,03 s |
+| `http://127.0.0.1:8000` | 0,00 s tutte | 0,00 s tutte |
+
+Con `localhost` il ritardo di circa 2 secondi (tentativo rifiutato su `::1`) si paga a ogni nuova
+connessione: le chiamate ravvicinate riusano quella aperta, ma dopo qualche secondo di pausa la
+connessione viene chiusa, e in una chat le chiamate sono distanti. Con `127.0.0.1` il ritardo
+sparisce.
+
+Servizio spento (nessun processo sulla porta 8000): «Quanti giorni mancano a Natale?» →
+`get_current_time {}`, poi `days_between {'end': '2026-12-25', 'start': '2026-11-06'}` →
+`risultato strumento: Errore: servizio giorni non raggiungibile a http://127.0.0.1:8000.` (circa
+2 secondi: su Windows anche una connessione rifiutata su `127.0.0.1` viene ritentata); la chat è
+continuata: «Che ore sono a Miami?» → `get_current_time {'city': 'Miami'}`, `America/New_York`.
+Il modello ha di nuovo ignorato l'errore: «Mancano 49 giorni a Natale…» (numero esatto, non venuto
+dallo strumento).
+
+### Resta da provare o da decidere
+
+- Rischio `GG-MM` (revisione finale, non corretto per scelta): il modello ha passato `30-02` in 2
+  tentativi su 10; con giorno ≤ 12 una data scambiata sarebbe accettata senza errore. Nessuna
+  serie su date ambigue eseguita.
+- Comportamento del modello con il servizio spento: riceve l'errore ma risponde a mente.
+- `LMSTUDIO_BASE_URL=http://localhost:1234/v1` può avere lo stesso ritardo su Windows: non
+  misurato, precedente a questo branch.
+- Checklist in Docker non rieseguita in questa sessione (il codice in Docker non cambia:
+  `GIORNI_BASE_URL=http://giorni:8000` da `compose.yaml`); va rifatta nella verifica completa
+  prima del push.
+
 ## Sessione del 2026-11-05 (8) — commit `2501ad2`
 
 Giorni e scadenze (`feat/giorni-scadenze`): servizio FastAPI e calendario (`453d028`), strumenti

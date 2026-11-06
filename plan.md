@@ -2474,3 +2474,15 @@ Spec §9. Stessi Global Constraints del piano. Suite attuale: 379 passed, 6 skip
   gli esiti dello Step 3 e, tra le cose da provare o da decidere, il rischio `GG-MM` (spec §9),
   il comportamento a servizio spento e lo stesso possibile ritardo di `LMSTUDIO_BASE_URL`; esito in
   `Es.1/plan.md`. Commit `docs: esito delle correzioni dopo la revisione finale`.
+
+**Esito delle correzioni (2026-11-06, esecuzione inline):** Task 7 (`b2ef580`): `_call` trasforma
+ogni `httpx.HTTPError` non di trasporto in `Errore: risposta non valida dal servizio giorni.`, test
+`test_http_error_becomes_invalid_response` visto fallire (4 casi) e poi passare. Task 8 (`518f67a`):
+`GIORNI_BASE_URL=http://127.0.0.1:8000` in `.env.example`, README e `.env` locale. Tempi di
+`date_info` con il servizio acceso: `localhost` 2,0 s a ogni nuova connessione (chiamate a 6 s
+l'una dall'altra: 2,05 / 2,02 / 2,03 s), `127.0.0.1` 0,00 s. Suite 383 passed / 6 skipped su 3.13 e
+3.14.9; LM Studio 6/6 con il servizio acceso; servizio spento: errore «non raggiungibile a
+http://127.0.0.1:8000» e chat che continua (il modello risponde ancora a mente). Restano annotati:
+rischio `GG-MM`, risposta a mente col servizio spento, possibile ritardo di `LMSTUDIO_BASE_URL`;
+checklist Docker da rifare nella verifica completa prima del push. Dettagli in
+`L4/docs/registro-test.md`, sessione (9).
