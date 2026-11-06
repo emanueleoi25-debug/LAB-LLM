@@ -135,6 +135,9 @@ def make_date_tools(
             response = client.get(path, params=params)
         except httpx.TransportError:
             return f"Errore: servizio giorni non raggiungibile a {base_url}."
+        except httpx.HTTPError:
+            # Errori non di trasporto (per esempio corpo non decodificabile): può mancare il codice.
+            return "Errore: risposta non valida dal servizio giorni."
         invalid = f"Errore: risposta non valida dal servizio giorni (HTTP {response.status_code})."
         try:
             data = response.json()

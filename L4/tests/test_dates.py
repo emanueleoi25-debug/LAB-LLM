@@ -338,6 +338,20 @@ def test_unreachable(error):
         )
 
 
+@pytest.mark.parametrize(
+    ("name", "args"),
+    [
+        ("days_between", {"end": "12-25"}),
+        ("add_days", {"days": 1}),
+        ("add_business_days", {"days": 1}),
+        ("date_info", {}),
+    ],
+)
+def test_http_error_becomes_invalid_response(name, args):
+    tools, _ = make_tools(error=httpx.DecodingError("corpo illeggibile"))
+    assert tools[name].invoke(args) == "Errore: risposta non valida dal servizio giorni."
+
+
 DESCRIPTIONS = {
     "days_between": (
         DAYS_BETWEEN_DESCRIPTION,
