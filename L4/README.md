@@ -35,7 +35,7 @@ Le variabili d'ambiente hanno la precedenza su `.env`, che resta fuori da Git.
 |---|---|---|---|
 | `LMSTUDIO_BASE_URL` | sì | — | indirizzo dell'API di LM Studio, es. `http://localhost:1234/v1` |
 | `LMSTUDIO_MODEL` | sì | — | identificativo del modello come restituito da `GET /v1/models` |
-| `GIORNI_BASE_URL` | sì | — | indirizzo del servizio giorni, es. `http://localhost:8000` (in Docker lo imposta `compose.yaml`) |
+| `GIORNI_BASE_URL` | sì | — | indirizzo del servizio giorni, es. `http://127.0.0.1:8000`: con `localhost` Windows prova prima `::1`, dove uvicorn non ascolta, e ogni chiamata costa circa 2 s in più (in Docker lo imposta `compose.yaml`) |
 | `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non indica una città (nome IANA) |
 | `MAX_TOOL_STEPS` | no | `3` | giri modello→strumenti consentiti per ogni domanda (intero ≥ 1) |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
@@ -265,8 +265,8 @@ python -m uvicorn servizio_giorni.app:app --port 8000
 Per controllare che risponda (da un altro terminale):
 
 ```powershell
-Invoke-RestMethod http://localhost:8000/salute
-curl.exe http://localhost:8000/salute
+Invoke-RestMethod http://127.0.0.1:8000/salute
+curl.exe http://127.0.0.1:8000/salute
 ```
 
 La risposta è `{"stato":"ok","anni_festivita":[2020,2040]}`.
@@ -300,7 +300,7 @@ tornano al modello come testo, senza interrompere la sessione:
 | `add_business_days` | `2026-11-05 (giovedì) + 10 giorni lavorativi = 2026-11-19 (giovedì); nessuna festività saltata.` |
 | `date_info`, festività | `2027-06-02 (mercoledì): festività, Festa della Repubblica; non lavorativo.` |
 | data non valida | `Errore: data non valida '02-30'. Usa AAAA-MM-GG o MM-GG.` |
-| servizio spento | `Errore: servizio giorni non raggiungibile a http://localhost:8000.` |
+| servizio spento | `Errore: servizio giorni non raggiungibile a http://127.0.0.1:8000.` |
 | risposta inattesa | `Errore: risposta non valida dal servizio giorni (HTTP <codice>).` |
 
 Esempio dal container (prompt di sistema omesso):
@@ -317,9 +317,9 @@ Assistente> Sì, il 2 giugno 2027 è festivo: è la Festa della Repubblica e non
 Con il servizio spento, dalla venv locale:
 
 ```
-2026-11-05 17:27:02,853 INFO assistente.graph: ← modello [chiamata] days_between {'end': '12-25', 'start': '11-05'}
-2026-11-05 17:27:06,921 INFO assistente.graph: risultato strumento: Errore: servizio giorni non raggiungibile a http://localhost:8000.
-Assistente> Ci sono 50 giorni rimanenti a Natale.
+2026-11-06 17:17:37,688 INFO assistente.graph: ← modello [chiamata] days_between {'end': '2026-12-25', 'start': '2026-11-06'}
+2026-11-06 17:17:39,731 INFO assistente.graph: risultato strumento: Errore: servizio giorni non raggiungibile a http://127.0.0.1:8000.
+Assistente> Mancano 49 giorni a Natale (25 dicembre 2026) se oggi è il 6 novembre 2026.
 ```
 
 La chat continua con la domanda successiva, ma **il modello ha ignorato l'errore**: ha risposto
@@ -357,7 +357,7 @@ servizio:
 
 ```powershell
 docker compose up -d --build giorni
-Invoke-RestMethod http://localhost:8000/salute
+Invoke-RestMethod http://127.0.0.1:8000/salute
 docker compose stop giorni
 ```
 
@@ -446,12 +446,12 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `LM Studio non raggiungibile a …` (codice 1) | server di LM Studio spento o porta diversa | avvia il server in LM Studio; controlla `LMSTUDIO_BASE_URL` |
 | lo stesso messaggio solo in Docker | il container non raggiunge l'host | prova il comando di controllo della sezione Docker; se fallisce, in LM Studio attiva «Serve on Local Network» |
 | `Modello '…' non disponibile su …` (codice 1) | identificativo errato o modello non scaricato | usa uno degli identificativi elencati nel messaggio |
-| `risultato strumento: Errore: servizio giorni non raggiungibile a …` | il servizio giorni è spento, la porta è diversa o (in Docker) `giorni` non è partito | avvia `python -m uvicorn servizio_giorni.app:app --port 8000` e controlla `Invoke-RestMethod http://localhost:8000/salute`; verifica `GIORNI_BASE_URL`. Il modello può rispondere comunque con un numero: non viene dallo strumento |
+| `risultato strumento: Errore: servizio giorni non raggiungibile a …` | il servizio giorni è spento, la porta è diversa o (in Docker) `giorni` non è partito | avvia `python -m uvicorn servizio_giorni.app:app --port 8000` e controlla `Invoke-RestMethod http://127.0.0.1:8000/salute`; verifica `GIORNI_BASE_URL`. Il modello può rispondere comunque con un numero: non viene dallo strumento |
 | `risultato strumento: Errore: data non valida '…'` | la data non esiste (es. `02-30`) o è scritta in un formato diverso da `AAAA-MM-GG` e `MM-GG` | nessuna azione: è il comportamento atteso, il modello riceve il motivo; se la data è reale riscrivila come `2027-06-02` |
 | `risultato strumento: Errore: giorni lavorativi e festività disponibili solo per gli anni 2020-2040.` oppure una risposta `festività non disponibili fuori dagli anni 2020-2040` | la data è fuori dagli anni di `servizio_giorni/festivita.json` | per quegli anni restano solo i giorni di calendario e il giorno della settimana |
 | `Errore: anno … fuori intervallo: ammessi 1900-2100.` | data o risultato fuori dai limiti del servizio | usa date tra il 1900 e il 2100 |
 | `Errore: risposta non valida dal servizio giorni (HTTP …)` | il servizio ha risposto con un codice o un testo inatteso | guarda i log del servizio nel terminale di uvicorn |
-| `GIORNI_BASE_URL mancante` (codice 2) | manca la variabile in `.env` | aggiungi `GIORNI_BASE_URL=http://localhost:8000` (vedi `.env.example`) |
+| `GIORNI_BASE_URL mancante` (codice 2) | manca la variabile in `.env` | aggiungi `GIORNI_BASE_URL=http://127.0.0.1:8000` (vedi `.env.example`) |
 | `Errore: il modello non ha risposto…` durante la chat | LM Studio fermato o modello scaricato dalla memoria; con `Error code: 400`, anche un blocco di LM Studio mentre genera una chiamata (nel log del server: «Failed to generate a tool call … timed out», visto 2 volte su 56 il 2026-11-05) | ricarica il modello e ripeti la domanda: la cronologia è intatta |
 | nessuna riga `strumento richiesto` nei log | `LOG_LEVEL` sopra `INFO`, oppure il modello ha risposto senza usare lo strumento | imposta `LOG_LEVEL=INFO`; riformula chiedendo l'ora attuale |
 | `strumento richiesto: get_current_time {}` seguito da `fuso predefinito` per una domanda su una città | il modello non ha passato la città allo strumento | riformula citando esplicitamente la città, es. «Che ore sono a Miami?» |
