@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements-dev.txt
 COPY pytest.ini .
 COPY assistente/ assistente/
 COPY servizio_giorni/ servizio_giorni/
+COPY servizio_catalogo/ servizio_catalogo/
 COPY tests/ tests/
 CMD ["python", "-m", "pytest", "-p", "no:cacheprovider"]
 
@@ -22,6 +23,7 @@ CMD ["python", "-m", "pytest", "-p", "no:cacheprovider"]
 FROM base AS app
 COPY assistente/ assistente/
 COPY servizio_giorni/ servizio_giorni/
+COPY servizio_catalogo/ servizio_catalogo/
 RUN useradd --create-home --uid 1000 assistente
 USER assistente
 CMD ["python", "-m", "assistente"]

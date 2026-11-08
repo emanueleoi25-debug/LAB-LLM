@@ -9,6 +9,7 @@ import openai
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool
 
+from assistente.catalog import make_catalog_tools
 from assistente.config import ConfigError, Settings, load_settings
 from assistente.dates import make_date_tools
 from assistente.graph import build_graph
@@ -31,7 +32,11 @@ SYSTEM_PROMPT = (
     "add_business_days e date_info; se l'utente non dice l'anno passa la data come MM-GG. "
     "Se uno strumento risponde che il servizio giorni non è raggiungibile o che la sua "
     "risposta non è valida, di' all'utente che il calcolo non è disponibile e non dare "
-    "risultati calcolati a mente o con altri strumenti."
+    "risultati calcolati a mente o con altri strumenti. "
+    "Per sapere se un articolo del laboratorio c'è, dove si trova, quanti pezzi ci sono o in che "
+    "stato è usa search_catalog e, per la scheda completa, get_catalog_item; non inventare "
+    "articoli, posizioni o quantità. Se il servizio catalogo non è raggiungibile o la sua "
+    "risposta non è valida, di' all'utente che l'inventario non è consultabile."
 )
 logger = logging.getLogger(__name__)
 
@@ -100,12 +105,13 @@ def configure_logging(level: str) -> None:
 
 
 def make_tools(settings: Settings) -> list[BaseTool]:
-    """Strumenti offerti al modello: orologio, convertitore, calcolatrice e strumenti delle date."""
+    """Strumenti offerti al modello: orologio, convertitore, calcolatrice, date e catalogo."""
     return [
         make_clock_tool(settings.default_timezone),
         make_converter_tool(),
         make_calculator_tool(),
         *make_date_tools(settings.giorni_base_url, settings.default_timezone),
+        *make_catalog_tools(settings.catalogo_base_url),
     ]
 
 

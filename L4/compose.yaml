@@ -11,6 +11,8 @@ services:
       LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
       # Servizio giorni e scadenze: raggiunto per nome di servizio sulla rete di Compose.
       GIORNI_BASE_URL: http://giorni:8000
+      # Servizio catalogo: raggiunto per nome di servizio sulla rete di Compose.
+      CATALOGO_BASE_URL: http://catalogo:8001
       # Ora dei log nel fuso di Roma (senza, i timestamp sono in UTC). L'orologio non dipende
       # da TZ: usa DEFAULT_TIMEZONE.
       TZ: Europe/Rome
@@ -18,6 +20,7 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       - giorni
+      - catalogo
     stdin_open: true
     tty: true
 
@@ -29,6 +32,15 @@ services:
     ports:
       # Pubblicata solo su localhost: il servizio non è esposto alla rete locale.
       - "127.0.0.1:8000:8000"
+
+  catalogo:
+    build:
+      context: .
+      target: app
+    command: ["python", "-m", "uvicorn", "servizio_catalogo.app:app", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      # Pubblicata solo su localhost: il servizio non è esposto alla rete locale.
+      - "127.0.0.1:8001:8001"
 
   test:
     build:

@@ -120,6 +120,8 @@ def test_tools_include_all_local_tools():
         "add_days",
         "add_business_days",
         "date_info",
+        "search_catalog",
+        "get_catalog_item",
     ]
 
 
@@ -151,9 +153,18 @@ def test_system_prompt_mentions_date_tools():
     ) in SYSTEM_PROMPT
 
 
-def test_system_prompt_ends_with_service_failure_rule():
-    assert SYSTEM_PROMPT.endswith(
+def test_system_prompt_contains_service_failure_rule():
+    assert (
         " Se uno strumento risponde che il servizio giorni non è raggiungibile o che la sua "
         "risposta non è valida, di' all'utente che il calcolo non è disponibile e non dare "
         "risultati calcolati a mente o con altri strumenti."
+    ) in SYSTEM_PROMPT
+
+
+def test_system_prompt_ends_with_catalog_rule():
+    assert SYSTEM_PROMPT.endswith(
+        " Per sapere se un articolo del laboratorio c'è, dove si trova, quanti pezzi ci sono o in "
+        "che stato è usa search_catalog e, per la scheda completa, get_catalog_item; non "
+        "inventare articoli, posizioni o quantità. Se il servizio catalogo non è raggiungibile o "
+        "la sua risposta non è valida, di' all'utente che l'inventario non è consultabile."
     )
