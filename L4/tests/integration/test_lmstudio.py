@@ -1,5 +1,6 @@
 """Prove reali con LM Studio: si attivano solo con RUN_LMSTUDIO_TESTS=1."""
 
+import dataclasses
 import os
 import re
 
@@ -81,3 +82,16 @@ def test_real_model_uses_catalog(graph):
     results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "search_catalog"]
     assert any("LAB-001" in r for r in results), results
     assert "Armadio A" in reply, reply
+
+
+def test_real_model_uses_notes(tmp_path):
+    settings = dataclasses.replace(load_settings(), note_db_path=str(tmp_path / "note.db"))
+    check_model(settings)
+    notes_graph = create_graph(settings)
+    history, _ = ask(notes_graph, new_history(), "Annota che il banco 3 ha la presa rotta")
+    added = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "add_note"]
+    assert any(r.startswith("Nota ") for r in added), added
+    history, reply = ask(notes_graph, new_history(), "Quali note ho?")
+    listed = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "list_notes"]
+    assert any("presa" in r for r in listed), listed
+    assert "presa" in reply, reply
