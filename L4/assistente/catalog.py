@@ -17,6 +17,9 @@ CATALOG_FAILURE_HINT = (
 )
 # Aggiunto ai 404 di get_catalog_item: il servizio non conosce i nomi degli strumenti.
 NOT_FOUND_HINT = "Usa search_catalog per trovare il codice."
+# Inizio del `detail` del 404 del servizio catalogo (spec §3.5): ogni altro 404, per esempio di un
+# altro servizio raggiunto per errore, è una risposta non valida (spec §9.1).
+NOT_FOUND_PREFIX = "nessun articolo con codice "
 
 SEARCH_DESCRIPTION = (
     "Cerca attrezzatura e materiale nell'inventario del laboratorio e restituisce codice, nome, "
@@ -109,7 +112,12 @@ def make_catalog_tools(base_url: str, client: httpx.Client | None = None) -> lis
         detail = data.get("detail")
         if response.status_code == 400 and isinstance(detail, str):
             return f"Errore: {detail}"
-        if response.status_code == 404 and not_found_hint and isinstance(detail, str):
+        if (
+            response.status_code == 404
+            and not_found_hint
+            and isinstance(detail, str)
+            and detail.startswith(NOT_FOUND_PREFIX)
+        ):
             return f"Errore: {detail} {NOT_FOUND_HINT}"
         if response.status_code != 200:
             return invalid

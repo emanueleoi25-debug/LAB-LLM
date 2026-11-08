@@ -231,6 +231,7 @@ def test_user_errors():
         ("get_catalog_item", {"code": "LAB-001"}, json_response({"codice": "LAB-001"}), 200),
         ("search_catalog", {"query": "x"}, json_response({"errore": "?"}, 400), 400),
         ("search_catalog", {"query": "x"}, json_response({"detail": "Not Found"}, 404), 404),
+        ("get_catalog_item", {"code": "LAB-001"}, json_response({"detail": "Not Found"}, 404), 404),
     ],
 )
 def test_invalid_responses(name, args, response, code):
