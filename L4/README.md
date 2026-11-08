@@ -36,6 +36,7 @@ Le variabili d'ambiente hanno la precedenza su `.env`, che resta fuori da Git.
 | `LMSTUDIO_BASE_URL` | sì | — | indirizzo dell'API di LM Studio, es. `http://127.0.0.1:1234/v1`: LM Studio ascolta solo su `127.0.0.1` e con `localhost` Windows prova prima `::1`, così ogni nuova connessione costa circa 2 s in più (in Docker lo imposta `compose.yaml`) |
 | `LMSTUDIO_MODEL` | sì | — | identificativo del modello come restituito da `GET /v1/models` |
 | `GIORNI_BASE_URL` | sì | — | indirizzo del servizio giorni, es. `http://127.0.0.1:8000`: con `localhost` Windows prova prima `::1`, dove uvicorn non ascolta, e ogni chiamata costa circa 2 s in più (in Docker lo imposta `compose.yaml`) |
+| `CATALOGO_BASE_URL` | sì | — | indirizzo del servizio catalogo, es. `http://127.0.0.1:8001` (in Docker lo imposta `compose.yaml`) |
 | `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non indica una città (nome IANA) |
 | `MAX_TOOL_STEPS` | no | `3` | giri modello→strumenti consentiti per ogni domanda (intero ≥ 1) |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
@@ -49,20 +50,25 @@ Invoke-RestMethod http://127.0.0.1:1234/v1/models | Select-Object -ExpandPropert
 
 ## Avvio
 
-Servono due terminali, entrambi nella cartella `Es.1/L4` con il venv attivo. Nel primo si avvia il
-servizio giorni (vedi [Strumenti per giorni e scadenze](#strumenti-per-giorni-e-scadenze)), che
-resta in esecuzione; nel secondo la chat.
+Servono tre terminali, tutti nella cartella `Es.1/L4` con il venv attivo. Nel primo si avvia il
+servizio giorni (vedi [Strumenti per giorni e scadenze](#strumenti-per-giorni-e-scadenze)), nel
+secondo il servizio catalogo (vedi [Strumenti del catalogo](#strumenti-del-catalogo)); entrambi
+restano in esecuzione. Nel terzo la chat.
 
 ```powershell
 python -m uvicorn servizio_giorni.app:app --port 8000
 ```
 
 ```powershell
+python -m uvicorn servizio_catalogo.app:app --port 8001
+```
+
+```powershell
 python -m assistente
 ```
 
-L'applicazione si avvia anche con il servizio spento: non lo controlla all'avvio. Solo gli
-strumenti delle date rispondono allora con un errore (vedi Diagnosi).
+L'applicazione si avvia anche con i servizi spenti: non li controlla all'avvio. Solo gli
+strumenti del servizio spento rispondono allora con un errore (vedi Diagnosi).
 
 All'avvio l'applicazione controlla che LM Studio risponda e che il modello configurato sia
 disponibile; altrimenti termina con codice 1 e un messaggio che riporta l'indirizzo e i modelli
@@ -343,14 +349,85 @@ risposto a mente che il giorno non esiste, senza chiamare lo strumento). Il mode
 (sempre per «Natale»): il risultato è corretto, ma costa un giro in più. Dettagli in
 [`docs/registro-test.md`](docs/registro-test.md).
 
+## Strumenti del catalogo
+
+L'inventario del laboratorio sta in un servizio FastAPI separato, `servizio_catalogo`, che non
+importa nulla da `assistente`. L'agente lo raggiunge via HTTP (indirizzo in `CATALOGO_BASE_URL`,
+timeout 5 secondi) con due strumenti che trasformano la risposta JSON in un testo per il modello.
+Si avvia con:
+
+```powershell
+python -m uvicorn servizio_catalogo.app:app --port 8001
+```
+
+Per controllare che risponda (da un altro terminale):
+
+```powershell
+curl.exe http://127.0.0.1:8001/salute
+```
+
+La risposta è `{"stato":"ok","articoli":32}`.
+
+| Strumento | Parametri | Che cosa fa |
+|---|---|---|
+| `search_catalog` | `query`, `category` (facoltativo) | cerca gli articoli e restituisce codice, nome, posizione, quantità e stato (al massimo 10) |
+| `get_catalog_item` | `code` | scheda completa di un articolo: descrizione, posizione, quantità, stato, note |
+
+L'inventario sta in `servizio_catalogo/inventario.json`: 32 articoli inventati, 4 per ciascuna
+delle 8 categorie (Misura, Alimentazione, Saldatura, Microcontrollori, Componenti, Cavi e
+connettori, Utensili, Sicurezza), con codici da `LAB-001` a `LAB-032`. Ogni articolo ha codice,
+nome, categoria, parole chiave, descrizione, posizione, quantità, stato (`disponibile`,
+`in manutenzione` o `esaurito`, che vale se e solo se la quantità è 0) e note. All'avvio il file è
+validato; se non è valido il servizio non parte e dice quale articolo e quale campo sono sbagliati.
+Il file si legge solo all'avvio: dopo una modifica il servizio va riavviato.
+
+La ricerca guarda solo nome, categoria e parole chiave (non descrizione e note). Maiuscole, accenti
+e punteggiatura non contano; le parole con meno di 3 lettere e alcune parole comuni («dove»,
+«quanti», «per», «uno»…) sono ignorate; singolare e plurale si equivalgono perché si confrontano le
+radici («resistenze» trova «Kit resistenze assortite», «batterie» trova anche «batteria esterna»).
+Gli articoli sono ordinati per numero di parole trovate e poi per codice. Il codice di
+`get_catalog_item` accetta spazi esterni e minuscole (`lab-002`), ma va scritto con tre cifre.
+
+| Caso | Esempio di risultato |
+|---|---|
+| `search_catalog` | `Trovato 1 articolo per «multimetro»:` seguito da `- LAB-001 Multimetro digitale: Armadio A, ripiano 1; 6 pezzi; disponibile` |
+| nessun risultato | `Nessun articolo trovato per «stampante 3D»: dillo all'utente e non inventare articoli.` |
+| `get_catalog_item` | `LAB-002 Oscilloscopio a 2 canali (Misura)`, poi le righe `Posizione:`, `Quantità:`, `Stato:`, `Descrizione:` e `Note: Prenotare con il tecnico di laboratorio.` |
+| codice inesistente | `Errore: nessun articolo con codice 'LAB-99'. Usa search_catalog per trovare il codice.` |
+| query senza parole utili | `Errore: la ricerca non contiene parole utili (servono parole di almeno 3 lettere).` |
+| servizio spento | `Errore: servizio catalogo non raggiungibile a http://127.0.0.1:8001. Non è possibile consultare l'inventario: dillo all'utente e non rispondere a mente.` |
+
+Esempio dal container (2026-11-08; il risultato della ricerca occupa due righe del log):
+
+```
+2026-11-08 18:13:06,899 INFO assistente.graph: ← modello [chiamata] search_catalog {'query': 'multimetro'}
+2026-11-08 18:13:06,920 INFO assistente.graph: risultato strumento: Trovato 1 articolo per «multimetro»:
+- LAB-001 Multimetro digitale: Armadio A, ripiano 1; 6 pezzi; disponibile
+Assistente> Il multimetro (codice LAB-001) si trova nell'Armadio A, ripiano 1. Ci sono 6 pezzi disponibili.
+2026-11-08 18:13:39,343 INFO assistente.graph: ← modello [chiamata] search_catalog {'query': 'stampante 3D'}
+2026-11-08 18:13:39,349 INFO assistente.graph: risultato strumento: Nessun articolo trovato per «stampante 3D»: dillo all'utente e non inventare articoli.
+Assistente> Non abbiamo trovato stampanti 3D nell'inventario del laboratorio.
+```
+
+Con `google/gemma-4-e2b` nella serie del 2026-11-08 (10 tentativi per domanda, una sessione nuova
+ciascuno, servizio avviato): «Dove trovo il multimetro?» → `search_catalog` con `multimetro` e
+risposta con «Armadio A, ripiano 1», 10 su 10; «Quanti Arduino Uno ci sono?» → `search_catalog` e
+risposta con 12, 10 su 10; «Fammi vedere la scheda di LAB-002» → `get_catalog_item` con `LAB-002` e
+risposta che cita il tecnico, 10 su 10; «Avete una stampante 3D?» → `search_catalog` e risposta
+«non trovato» senza articoli, posizioni o quantità inventati, 10 su 10. Con il servizio spento
+(«Dove trovo il multimetro?», 10 tentativi) il modello ha chiamato sempre `search_catalog` e ha
+risposto che l'inventario non è consultabile, senza posizioni inventate, 10 su 10. Dettagli in
+[`docs/registro-test.md`](docs/registro-test.md).
+
 ## Docker Compose
 
 L'immagine usa Python 3.14.9; LM Studio resta sull'host e il container lo raggiunge tramite
 `host.docker.internal` (Compose sostituisce `LMSTUDIO_BASE_URL` del `.env`). Serve il file `.env`
-(vedi Configurazione). Il servizio giorni è il servizio Compose `giorni`, che `assistente` richiede
-(`depends_on`) e raggiunge per nome con `GIORNI_BASE_URL=http://giorni:8000`; la sua porta è
-pubblicata solo su `127.0.0.1:8000`. Non avviare insieme il servizio locale e quello Docker: usano
-la stessa porta dell'host. Nel servizio `assistente` Compose imposta `TZ: Europe/Rome`, così l'ora
+(vedi Configurazione). I servizi giorni e catalogo sono i servizi Compose `giorni` e `catalogo`,
+che `assistente` richiede (`depends_on`) e raggiunge per nome con `GIORNI_BASE_URL=http://giorni:8000`
+e `CATALOGO_BASE_URL=http://catalogo:8001`; le loro porte sono pubblicate solo su `127.0.0.1:8000`
+e `127.0.0.1:8001`. Non avviare insieme un servizio locale e lo stesso servizio in Docker: usano la
+stessa porta dell'host. Nel servizio `assistente` Compose imposta `TZ: Europe/Rome`, così l'ora
 dei log è quella di Roma e non UTC; l'orologio non dipende da `TZ` (usa `DEFAULT_TIMEZONE`).
 
 ```powershell
@@ -358,9 +435,9 @@ docker compose build
 docker compose run --rm assistente
 ```
 
-`run` (non `up`) collega il terminale alla chat e avvia anche `giorni`, che resta in esecuzione
-dopo l'uscita. Per fermarlo: `docker compose stop giorni`. Per avviare e controllare solo il
-servizio:
+`run` (non `up`) collega il terminale alla chat e avvia anche `giorni` e `catalogo`, che restano in
+esecuzione dopo l'uscita. Per fermarli: `docker compose stop giorni catalogo`. Per avviare e
+controllare solo un servizio:
 
 ```powershell
 docker compose up -d --build giorni
@@ -368,8 +445,14 @@ Invoke-RestMethod http://127.0.0.1:8000/salute
 docker compose stop giorni
 ```
 
-L'immagine dell'applicazione contiene solo i pacchetti `assistente` e `servizio_giorni` e le
-dipendenze: niente `.env`, test o `pytest`.
+```powershell
+docker compose up -d --build catalogo
+curl.exe http://127.0.0.1:8001/salute
+docker compose stop catalogo
+```
+
+L'immagine dell'applicazione contiene solo i pacchetti `assistente`, `servizio_giorni` e
+`servizio_catalogo` e le dipendenze: niente `.env`, test o `pytest`.
 
 Per controllare che il container raggiunga LM Studio:
 
@@ -396,8 +479,9 @@ risultano `skipped`.
 
 ### Prove reali con LM Studio
 
-Con LM Studio attivo, `.env` configurato e il servizio giorni avviato (la prova su `date_info`
-fallisce con «servizio giorni non avviato» se il servizio non risponde):
+Con LM Studio attivo, `.env` configurato e i servizi giorni e catalogo avviati (le prove su
+`date_info` e `search_catalog` falliscono con «servizio giorni non avviato» o «servizio catalogo
+non avviato» se il servizio non risponde):
 
 ```powershell
 $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:RUN_LMSTUDIO_TESTS
@@ -407,9 +491,9 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
 
 1. Test automatici su 3.13 e 3.14: `python -m pytest` e
    `docker compose --profile test run --rm --build test` (tutti passed, le prove reali skipped).
-2. Prove reali con LM Studio (comando sopra, con il servizio giorni avviato): risposta, memoria
-   della sessione, uso dell'orologio, del convertitore, della calcolatrice e di `date_info`
-   (6 passed).
+2. Prove reali con LM Studio (comando sopra, con i servizi giorni e catalogo avviati): risposta,
+   memoria della sessione, uso dell'orologio, del convertitore, della calcolatrice, di `date_info`
+   e di `search_catalog` (7 passed).
 3. In Docker, `docker compose run --rm assistente`:
    - «Che ore sono a Miami?» → su stderr compaiono `← modello [chiamata] get_current_time
      {'city': 'Miami'}` e un risultato con `America/New_York`; la risposta è coerente con l'ora
@@ -432,8 +516,12 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
      (con la data del giorno della prova);
    - «Il 2 giugno 2027 è festivo?» → `← modello [chiamata] date_info {'date': '2027-06-02'}`, poi
      `2027-06-02 (mercoledì): festività, Festa della Repubblica; non lavorativo.`
+   - «Dove trovo il multimetro?» → `← modello [chiamata] search_catalog` con `multimetro`, poi
+     `Trovato 1 articolo per «multimetro»:` e la riga di `LAB-001`; la risposta cita
+     «Armadio A, ripiano 1».
 
-   Con `docker compose run` il servizio `giorni` parte da solo; alla fine `docker compose stop giorni`.
+   Con `docker compose run` i servizi `giorni` e `catalogo` partono da soli; alla fine
+   `docker compose stop giorni catalogo`.
 
    Senza terminale interattivo si possono passare le righe da PowerShell:
 
@@ -458,6 +546,12 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `risultato strumento: Errore: giorni lavorativi e festività disponibili solo per gli anni 2020-2040.` oppure una risposta `festività non disponibili fuori dagli anni 2020-2040` | la data è fuori dagli anni di `servizio_giorni/festivita.json` | per quegli anni restano solo i giorni di calendario e il giorno della settimana |
 | `Errore: anno … fuori intervallo: ammessi 1900-2100.` | data o risultato fuori dai limiti del servizio | usa date tra il 1900 e il 2100 |
 | `Errore: risposta non valida dal servizio giorni (HTTP …)` | il servizio ha risposto con un codice o un testo inatteso | guarda i log del servizio nel terminale di uvicorn |
+| `risultato strumento: Errore: servizio catalogo non raggiungibile a …` | il servizio catalogo è spento, la porta è diversa o (in Docker) `catalogo` non è partito | avvia `python -m uvicorn servizio_catalogo.app:app --port 8001` e controlla `curl.exe http://127.0.0.1:8001/salute`; verifica `CATALOGO_BASE_URL` |
+| `[Errno 10048] error while attempting to bind on address ('127.0.0.1', 8001)` all'avvio del servizio catalogo | la porta 8001 è già occupata, di solito da un altro servizio catalogo (locale o Docker) | ferma l'altro (Ctrl+C nel suo terminale, oppure `docker compose stop catalogo`) e riprova |
+| `risultato strumento: Errore: nessun articolo con codice '…'. Usa search_catalog per trovare il codice.` | il codice non esiste (i codici vanno da `LAB-001` a `LAB-032`, con tre cifre) | nessuna azione: il modello può cercare l'articolo con `search_catalog` |
+| `risultato strumento: Errore: categoria '…' inesistente. Categorie valide: …` | il modello ha passato una categoria che non c'è nell'inventario | nessuna azione: il modello riceve l'elenco delle categorie e può riprovare |
+| `Errore: risposta non valida dal servizio catalogo (HTTP …)` | il servizio ha risposto con un codice o un testo inatteso, oppure `CATALOGO_BASE_URL` indica un altro servizio | controlla `CATALOGO_BASE_URL` e i log nel terminale di uvicorn |
+| `CATALOGO_BASE_URL mancante` (codice 2) | manca la variabile in `.env` (per esempio un `.env` creato prima del catalogo) | aggiungi `CATALOGO_BASE_URL=http://127.0.0.1:8001` (vedi `.env.example`) |
 | `GIORNI_BASE_URL mancante` (codice 2) | manca la variabile in `.env` | aggiungi `GIORNI_BASE_URL=http://127.0.0.1:8000` (vedi `.env.example`) |
 | a «quanti giorni mancano all'11 febbraio?» la risposta è «già passato» o un numero negativo | il modello ha aggiunto da sé l'anno corrente (`days_between` con `end` `2026-02-11` invece di `02-11`): con gemma circa 2 volte su 10 nella serie del 2026-11-08 | controlla nei log la data passata a `days_between`; con l'anno scritto nella domanda il modello lo usa (es. «Il 2 giugno 2027 è festivo?» → `2027-06-02`, 10 su 10 il 2026-11-05) |
 | `Errore: il modello non ha risposto…` durante la chat | LM Studio fermato o modello scaricato dalla memoria; con `Error code: 400`, anche un blocco di LM Studio mentre genera una chiamata (nel log del server: «Failed to generate a tool call … timed out», visto 2 volte su 56 il 2026-11-05) | ricarica il modello e ripeti la domanda: la cronologia è intatta |

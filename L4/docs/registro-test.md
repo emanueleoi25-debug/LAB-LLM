@@ -3,6 +3,66 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-08 (11) — commit `60155c1`
+
+Catalogo locale (spec `2026-11-08-catalogo-locale-design.md`, piano Task 1-6, branch
+`feat/catalogo-locale`). Modello `google/gemma-4-e2b` in LM Studio sull'host. Il `.env` locale non
+ha ancora `CATALOGO_BASE_URL`: nelle prove dalla venv la variabile è stata passata nell'ambiente del
+comando (`CATALOGO_BASE_URL=http://127.0.0.1:8001`). Serie con uno script usa e getta nella
+scratchpad (`create_graph` + `ask`, una sessione nuova per tentativo).
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 481 passed, 6 skipped |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 481 passed, 6 skipped |
+| Servizio catalogo locale | venv locale | `python -m uvicorn servizio_catalogo.app:app --port 8001`, poi `curl` su `/cerca?q=multimetro` e `/articolo?codice=LAB-99` | JSON con LAB-001; 404 `nessun articolo con codice 'LAB-99'.` |
+| Servizio catalogo in Compose | container `catalogo`, Python 3.14.9 | `docker compose up -d --build catalogo`, `curl.exe http://127.0.0.1:8001/salute` (Git Bash e PowerShell) | `{"stato":"ok","articoli":32}`; poi `docker compose stop catalogo` |
+| Porta 8001 occupata | venv locale, servizio già avviato | secondo `python -m uvicorn servizio_catalogo.app:app --port 8001` | `[Errno 10048] error while attempting to bind on address ('127.0.0.1', 8001)`, uscita 3 |
+| Avvio con il `.env` senza la variabile | venv locale | `python -m assistente` | `Configurazione non valida: CATALOGO_BASE_URL mancante`, uscita 2 |
+| Prove reali con LM Studio, servizi giorni e catalogo avviati | venv locale | `RUN_LMSTUDIO_TESTS=1 … python -m pytest -m lmstudio -v` | 7 passed (143 s) |
+| Serie della spec §7, servizio avviato | venv locale | 40 tentativi | 40 su 40 (vedi sotto) |
+| Servizio catalogo spento | venv locale, nessun processo sulla porta 8001 | 10 tentativi | 0 posizioni inventate su 10 |
+| Checklist in Docker | container `assistente` + `giorni` + `catalogo` + LM Studio sull'host | `"Dove trovo il multimetro?", "Avete una stampante 3D?", "esci" \| docker compose run --rm -T --build assistente` | 2 domande come atteso, uscita 0 |
+
+Test nuovi: `tests/test_inventario.py` (50: file vero, validazione, normalizzazione, radici,
+ricerca, dettaglio), `tests/test_servizio_catalogo.py` (10), `tests/test_catalog.py` (34, compresi
+4 test di contratto sull'app vera con `TestClient`), 2 in `tests/test_config.py`, 1 in
+`tests/test_cli.py`; `test_system_prompt_ends_with_service_failure_rule` è diventato
+`test_system_prompt_contains_service_failure_rule`. Ogni gruppo è stato visto fallire prima del
+codice.
+
+Serie con il servizio avviato (10 tentativi per domanda; nessun errore di LM Studio, nessuna
+chiamata scritta come testo):
+
+| Domanda | Chiamata | Esito |
+|---|---|---|
+| «Dove trovo il multimetro?» | 10 su 10 `search_catalog {'query': 'multimetro'}` | 10 su 10 risposte con «Armadio A, ripiano 1» |
+| «Quanti Arduino Uno ci sono?» | 10 su 10 `search_catalog {'query': 'Arduino Uno'}` | 10 su 10 risposte con 12 |
+| «Fammi vedere la scheda di LAB-002» | 10 su 10 `get_catalog_item {'code': 'LAB-002'}` | 10 su 10 risposte che citano il tecnico di laboratorio |
+| «Avete una stampante 3D?» | 10 su 10 `search_catalog {'query': 'stampante 3D'}` | 10 su 10 «non abbiamo trovato…», nessun codice, posizione o quantità |
+
+Servizio catalogo spento, «Dove trovo il multimetro?»: 10 su 10 `search_catalog` con il risultato
+`Errore: servizio catalogo non raggiungibile a http://127.0.0.1:8001. Non è possibile consultare
+l'inventario: dillo all'utente e non rispondere a mente.` e risposte come «Mi dispiace,
+l'inventario del laboratorio non è consultabile in questo momento.»; nessuna posizione inventata.
+
+Checklist in Docker (ora dell'host 18:12:42-18:13:50, log nell'ora di Roma):
+`← modello [chiamata] search_catalog {'query': 'multimetro'}` → `Trovato 1 articolo per
+«multimetro»:` / `- LAB-001 Multimetro digitale: Armadio A, ripiano 1; 6 pezzi; disponibile` →
+«Il multimetro (codice LAB-001) si trova nell'Armadio A, ripiano 1. Ci sono 6 pezzi disponibili.»;
+`search_catalog {'query': 'stampante 3D'}` → `Nessun articolo trovato per «stampante 3D»: dillo
+all'utente e non inventare articoli.` → «Non abbiamo trovato stampanti 3D nell'inventario del
+laboratorio.». Poi `docker compose stop giorni catalogo`, porte 8000 e 8001 libere.
+
+Osservazione: la riga di log `risultato strumento:` riporta il testo così com'è, quindi il
+risultato a più righe di `search_catalog` va a capo nel log (la riga `→ modello` successiva usa
+invece `\n`). `graph.py` non è stato modificato.
+
+### Resta da provare
+
+- Checklist da terminale interattivo vero (senza `-T`).
+- Le voci della checklist degli strumenti precedenti, nella verifica completa prima del push.
+
 ## Sessione del 2026-11-08 (10) — commit `20797c6`
 
 Aggiunte prima del merge in `dev` (spec §10, Task 9-11): testo d'errore dei guasti del servizio

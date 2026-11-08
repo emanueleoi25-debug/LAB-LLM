@@ -2626,6 +2626,17 @@ Approvato il 2026-11-08 (esecuzione: Native, revisione finale opus).
 Spec: `L4/docs/superpowers/specs/2026-11-08-catalogo-locale-design.md`.
 Fonte: `L4/docs/superpowers/plans/2026-11-08-catalogo-locale.md`.
 
+**Esito (2026-11-08):** Task 1-6 eseguiti su `feat/catalogo-locale` (`830d35c`…`3dbcaf3`, prova
+reale `60155c1`, docs nel commit seguente). Suite 481 passed / 6 skipped su 3.13.14 e 3.14.9;
+LM Studio 7/7 con i servizi giorni e catalogo avviati. Serie della spec §7 con
+`google/gemma-4-e2b` (40 tentativi, nessun errore, nessuna chiamata scritta come testo):
+multimetro 10/10, Arduino Uno 10/10, scheda LAB-002 10/10, stampante 3D 10/10; servizio spento
+0 posizioni inventate su 10. Checklist Docker: 2 domande del catalogo come atteso. Ruling: lista
+delle parole vuote di 28 parole come nella spec (il piano diceva 30). Osservazione: il risultato a
+più righe di `search_catalog` va a capo nella riga di log `risultato strumento` (`graph.py`
+invariato). `CLAUDE.md` da aggiornare dopo l'ok dell'utente. Dettagli in
+`L4/docs/registro-test.md`, sessione (11).
+
 ### Catalogo locale — piano di implementazione
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
