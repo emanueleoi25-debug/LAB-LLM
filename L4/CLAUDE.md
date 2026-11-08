@@ -39,23 +39,28 @@ Un'applicazione da terminale in Python che conversa con un modello locale e:
 - Comandi documentati anche per PowerShell (Windows).
 
 ## Struttura e comandi
-- Pacchetto `assistente/`: `config.py` (variabili d'ambiente), `tools.py` (orologio, convertitore,
-  calcolatrice), `units.py` (tabella delle unità e conversione), `arithmetic.py` (analisi e calcolo
+- Pacchetto `assistente/`: `config.py` (variabili d'ambiente, `GIORNI_BASE_URL` obbligatoria),
+  `tools.py` (orologio, convertitore, calcolatrice), `dates.py` (strumenti delle date, client HTTP
+  del servizio giorni), `units.py` (tabella delle unità e conversione), `arithmetic.py` (analisi e calcolo
   sicuro delle espressioni aritmetiche),
   `cities.py` (ricerca città → fuso su archivio locale), `graph.py` (stato, nodi, instradamento,
   log dei messaggi al modello), `model.py` (collegamento a LM Studio), `cli.py` (ciclo da
   terminale, cronologia, log), `__main__.py` (`python -m assistente`).
+- Servizio `servizio_giorni/` (FastAPI, indipendente da `assistente/`): `calendario.py`, `app.py`,
+  `festivita.json` (festività nazionali 2020-2040). Avvio locale in un secondo terminale:
+  `python -m uvicorn servizio_giorni.app:app --port 8000`.
 - Registri in `docs/`: `registro-test.md` (esiti delle verifiche eseguite) e
   `registro-modifiche.md` (correzioni con causa, soluzione, ragionamento, commit e verifica).
 - Docker: `Dockerfile` multi-stage (`app` predefinito, `test` per la suite) e `compose.yaml`
-  (progetto `assistente-laboratorio`, servizi `assistente` e `test` con profilo `test`).
+  (progetto `assistente-laboratorio`, servizi `assistente`, `giorni` (porta `127.0.0.1:8000`)
+  e `test` con profilo `test`).
 - Test in `tests/`; `tests/fakes.py` contiene il modello finto `ScriptedModel`.
 - Ambiente locale: `py -3.13 -m venv .venv`, poi `.\.venv\Scripts\Activate.ps1` e
   `python -m pip install -r requirements-dev.txt`.
 - Test: `python -m pytest` (Python 3.13, venv locale) e
   `docker compose --profile test run --rm --build test` (Python 3.14). La suite deve passare su
   entrambe le versioni.
-- Prove reali con LM Studio: `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v`.
+- Prove reali con LM Studio, con il servizio giorni avviato: `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v`.
 
 ## Metodo: Superpowers
 - Usare le skill di Superpowers per brainstorming, specifica, piano, implementazione e verifica.
