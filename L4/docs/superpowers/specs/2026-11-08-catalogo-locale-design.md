@@ -349,7 +349,7 @@ inesistenti (404, con il codice ripulito nel messaggio).
 - Commit in Conventional Commits in italiano (`feat(catalogo): …`, `test(catalogo): …`,
   `build: …`, `docs: …`); merge in `dev` con l'ok dell'utente, push solo su richiesta.
 
-## 9. Correzione proposta dopo la revisione finale (2026-11-08, da approvare)
+## 9. Correzione dopo la revisione finale (2026-11-08, approvata il 2026-11-08)
 
 La revisione finale del branch (subagent opus, `3800b10..ac907fb`) ha trovato 0 problemi critici,
 1 importante e 3 minori. L'importante riguarda il §2.4.

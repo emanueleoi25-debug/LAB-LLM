@@ -5,6 +5,32 @@ non era giusto, perché, come è stato risolto, quali alternative sono state sca
 e come è stato verificato. Gli esiti completi delle verifiche sono in
 [`registro-test.md`](registro-test.md).
 
+## 2026-11-08 — Un 404 di un altro servizio sembrava un codice inesistente
+
+**Che cosa non era giusto.** Con `CATALOGO_BASE_URL` che punta a un altro servizio FastAPI (il caso
+più probabile: la porta 8000 del servizio giorni), `get_catalog_item` restituiva `Errore: Not Found
+Usa search_catalog per trovare il codice.`: il modello poteva dire all'utente che l'articolo non
+esiste, cioè un'affermazione falsa sull'inventario. `search_catalog` sullo stesso indirizzo dava
+invece, correttamente, «risposta non valida (HTTP 404)».
+
+**Causa.** `_call` trattava come errore dell'utente qualsiasi 404 con un `detail` testuale, e
+FastAPI risponde `{"detail": "Not Found"}` a ogni percorso sconosciuto.
+
+**Soluzione (spec §9.1).** Il 404 è un codice inesistente solo se `detail` inizia con
+`nessun articolo con codice ` (costante `NOT_FOUND_PREFIX` in `assistente/catalog.py`, il testo del
+servizio catalogo); ogni altro 404 diventa `Errore: risposta non valida dal servizio catalogo
+(HTTP 404). Non è possibile consultare l'inventario: …`.
+
+**Ragionamento.** Trovato dalla revisione finale del branch (unico problema «importante»).
+Riconoscere il testo del servizio è la verifica più piccola che distingue i due casi; la riga di
+Diagnosi del README su «risposta non valida» citava già un `CATALOGO_BASE_URL` sbagliato.
+
+**Commit.** `7123f77` — `fix(catalogo): un 404 estraneo non è un codice inesistente`.
+
+**Verifica.** Caso nuovo in `test_invalid_responses`, prima fallito e poi superato;
+`test_user_errors` e `test_contract_unknown_code` invariati e verdi; suite 482 passed, 7 skipped
+su 3.13.14 e 3.14.9.
+
 ## 2026-11-08 — Con il servizio giorni spento il modello rispondeva a mente
 
 **Che cosa non era giusto.** Con il servizio giorni spento, alla domanda «Quanti giorni mancano a

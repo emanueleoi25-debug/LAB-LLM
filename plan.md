@@ -3044,3 +3044,33 @@ Tutti i comandi si eseguono da `Es.1/L4` in PowerShell con il venv attivo
 - [ ] **Step 6:** revisione finale del branch, poi chiedere all'utente l'ok per il merge in `dev`.
   Push solo su richiesta, dopo la verifica completa rieseguita (suite 3.13 e 3.14, LM Studio,
   checklist Docker).
+
+---
+
+#### Correzione dopo la revisione finale (aggiunta del 2026-11-08, approvata il 2026-11-08)
+
+Spec §9. Stesse Global Constraints.
+
+##### Task 7: un 404 estraneo su `/articolo` è una risposta non valida (spec §9.1)
+
+**Files:**
+- Modify: `assistente/catalog.py`, `README.md` (riga di Diagnosi), `docs/registro-test.md`
+- Test: `tests/test_catalog.py`
+
+- [x] **Step 1: test che fallisce**: in `test_invalid_responses` il caso
+  `("get_catalog_item", {"code": "LAB-001"}, json_response({"detail": "Not Found"}, 404), 404)`.
+  `python -m pytest tests/test_catalog.py -v` → FAIL su quel caso (oggi `Errore: Not Found Usa …`).
+- [x] **Step 2: correzione** in `_call`: il ramo 404 vale solo se `detail` è una stringa che inizia
+  con `NOT_FOUND_PREFIX = "nessun articolo con codice "` (costante in `catalog.py`); altrimenti
+  `invalid`. `test_user_errors` e `test_contract_unknown_code` restano invariati e verdi.
+- [x] **Step 3: verifiche**: `python -m pytest` e `docker compose --profile test run --rm --build test`
+  → verdi (482 passed, 7 skipped).
+- [x] **Step 4: documentazione**: nella riga di Diagnosi del README «risposta non valida dal servizio
+  catalogo» vale per entrambi gli strumenti; esito nel registro e in `Es.1/plan.md`. Commit
+  `fix(catalogo): un 404 estraneo non è un codice inesistente` e `docs: …`.
+
+**Esito del Task 7 (2026-11-08, esecuzione Native):** `7123f77`. Test nuovo visto fallire
+(`Errore: Not Found Usa search_catalog…`) e poi passare; suite 482 passed / 7 skipped su 3.13.14 e
+3.14.9. Ruling: README invariato, la riga di Diagnosi «risposta non valida dal servizio catalogo» è
+già generica e cita un `CATALOGO_BASE_URL` sbagliato. Dettagli in `L4/docs/registro-test.md`,
+sessione (12), e in `L4/docs/registro-modifiche.md`.

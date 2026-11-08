@@ -408,7 +408,7 @@ Tutti i comandi si eseguono da `Es.1/L4` in PowerShell con il venv attivo
 
 ---
 
-## Correzione dopo la revisione finale (aggiunta del 2026-11-08, da approvare)
+## Correzione dopo la revisione finale (aggiunta del 2026-11-08, approvata il 2026-11-08)
 
 Spec §9. Stesse Global Constraints.
 
@@ -418,14 +418,14 @@ Spec §9. Stesse Global Constraints.
 - Modify: `assistente/catalog.py`, `README.md` (riga di Diagnosi), `docs/registro-test.md`
 - Test: `tests/test_catalog.py`
 
-- [ ] **Step 1: test che fallisce**: in `test_invalid_responses` il caso
+- [x] **Step 1: test che fallisce**: in `test_invalid_responses` il caso
   `("get_catalog_item", {"code": "LAB-001"}, json_response({"detail": "Not Found"}, 404), 404)`.
   `python -m pytest tests/test_catalog.py -v` → FAIL su quel caso (oggi `Errore: Not Found Usa …`).
-- [ ] **Step 2: correzione** in `_call`: il ramo 404 vale solo se `detail` è una stringa che inizia
+- [x] **Step 2: correzione** in `_call`: il ramo 404 vale solo se `detail` è una stringa che inizia
   con `NOT_FOUND_PREFIX = "nessun articolo con codice "` (costante in `catalog.py`); altrimenti
   `invalid`. `test_user_errors` e `test_contract_unknown_code` restano invariati e verdi.
-- [ ] **Step 3: verifiche**: `python -m pytest` e `docker compose --profile test run --rm --build test`
+- [x] **Step 3: verifiche**: `python -m pytest` e `docker compose --profile test run --rm --build test`
   → verdi (482 passed, 7 skipped).
-- [ ] **Step 4: documentazione**: nella riga di Diagnosi del README «risposta non valida dal servizio
+- [x] **Step 4: documentazione**: nella riga di Diagnosi del README «risposta non valida dal servizio
   catalogo» vale per entrambi gli strumenti; esito nel registro e in `Es.1/plan.md`. Commit
   `fix(catalogo): un 404 estraneo non è un codice inesistente` e `docs: …`.

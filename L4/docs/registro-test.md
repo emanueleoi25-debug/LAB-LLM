@@ -3,6 +3,27 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-08 (12) — commit `7123f77`
+
+Correzione dopo la revisione finale del catalogo (spec §9.1, piano Task 7, branch
+`feat/catalogo-locale`): un 404 di `/articolo` senza il testo `nessun articolo con codice ` è una
+risposta non valida.
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Test nuovo prima della correzione | venv locale, Python 3.13.14 | `python -m pytest tests/test_catalog.py` | 1 failed (`test_invalid_responses[get_catalog_item-…-404]`: `Errore: Not Found Usa search_catalog…`), 34 passed |
+| Stesso file dopo la correzione | venv locale, Python 3.13.14 | `python -m pytest tests/test_catalog.py` | 35 passed |
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 482 passed, 7 skipped |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 482 passed, 7 skipped |
+
+Prove reali non rieseguite: la correzione non cambia i testi visti dal modello con il servizio
+catalogo corretto.
+
+### Resta da provare
+
+- La verifica completa prima del push (suite 3.13 e 3.14, LM Studio, checklist Docker di tutti gli
+  strumenti).
+
 ## Sessione del 2026-11-08 (11) — commit `60155c1`, suite rieseguite su `ac907fb`
 
 Catalogo locale (spec `2026-11-08-catalogo-locale-design.md`, piano Task 1-6, branch
