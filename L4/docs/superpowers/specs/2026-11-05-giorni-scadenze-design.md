@@ -442,6 +442,20 @@ getta, interrotto dall'utente a 36 tentativi su 40):
   non peggiora rispetto allo spike (almeno 8 su 10). Controlli: «Quanti giorni mancano a Natale?»
   e «Il 2 giugno 2027 è festivo?», 2 tentativi ciascuno, invariati.
 
+#### 10.3.1 Esito: frase non adottata (2026-11-08)
+
+Serie con la descrizione nuova (gemma, servizio acceso, una sessione nuova per tentativo), fermata
+dall'utente a 9 tentativi quando il criterio non era più raggiungibile: «Quanti giorni mancano
+all'11 febbraio?» → **7 su 9 con `end` `2026-02-11`** (-270 giorni, «l'11 febbraio è già
+passato»), 1 su 9 giusto (`2027-02-11`, 95 giorni), 1 su 9 con `start` `11-02` al posto di oggi
+(101 giorni). Lo spike con la descrizione vecchia dava 8 su 10 giusti: la frase, che nomina l'anno,
+peggiora il comportamento. Controlli non eseguiti (la frase non si tiene).
+
+Decisione dell'utente: **modifica annullata**, la descrizione di `days_between` resta quella del
+§2; nessun commit `fix(strumenti):` per il §10.3. Il problema dell'anno aggiunto dal modello resta
+noto (circa 2 su 10 nello spike) e annotato nel registro; un'altra formulazione richiederebbe un
+nuovo spike e un'aggiunta a spec e piano.
+
 ### 10.4 Criteri e commit
 
 Suite senza modello verde su 3.13 e 3.14; prove reali con LM Studio 6/6 con il servizio acceso; le

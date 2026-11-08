@@ -474,6 +474,10 @@ non vanno mai avviati insieme; a fine prova la porta 8000 resta libera.
   giugno 2027 è festivo?», 2 tentativi ciascuno, come nella serie del 2026-11-05.
 - [ ] **Step 6: commit** `fix(strumenti): days_between non aggiunge l'anno alle date senza anno`
   (`git add assistente/dates.py tests/test_dates.py`).
+- [x] **Esito (2026-11-08):** Steps 1-4 fatti (RED 1 fallito, GREEN 384/6); serie dello Step 5
+  fermata a 9 tentativi: 7 su 9 con data passata, 1 su 9 giusto, 1 su 9 con `start` sbagliato
+  (spike: 8 su 10 giusti). Criterio mancato: per scelta dell'utente modifica annullata
+  (`git restore`), nessun commit dello Step 6 (spec §10.3.1).
 
 ### Task 11: fuso dei log in Docker e 127.0.0.1 per LM Studio (spec §10.2)
 
