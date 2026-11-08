@@ -300,8 +300,8 @@ tornano al modello come testo, senza interrompere la sessione:
 | `add_business_days` | `2026-11-05 (giovedì) + 10 giorni lavorativi = 2026-11-19 (giovedì); nessuna festività saltata.` |
 | `date_info`, festività | `2027-06-02 (mercoledì): festività, Festa della Repubblica; non lavorativo.` |
 | data non valida | `Errore: data non valida '02-30'. Usa AAAA-MM-GG o MM-GG.` |
-| servizio spento | `Errore: servizio giorni non raggiungibile a http://127.0.0.1:8000.` |
-| risposta inattesa | `Errore: risposta non valida dal servizio giorni (HTTP <codice>).` |
+| servizio spento | `Errore: servizio giorni non raggiungibile a http://127.0.0.1:8000. Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a mente.` |
+| risposta inattesa | `Errore: risposta non valida dal servizio giorni (HTTP <codice>). Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a mente.` |
 
 Esempio dal container (prompt di sistema omesso):
 
@@ -317,14 +317,20 @@ Assistente> Sì, il 2 giugno 2027 è festivo: è la Festa della Repubblica e non
 Con il servizio spento, dalla venv locale:
 
 ```
-2026-11-06 17:17:37,688 INFO assistente.graph: ← modello [chiamata] days_between {'end': '2026-12-25', 'start': '2026-11-06'}
-2026-11-06 17:17:39,731 INFO assistente.graph: risultato strumento: Errore: servizio giorni non raggiungibile a http://127.0.0.1:8000.
-Assistente> Mancano 49 giorni a Natale (25 dicembre 2026) se oggi è il 6 novembre 2026.
+2026-11-08 16:42:40,219 INFO assistente.graph: ← modello [chiamata] days_between {'end': '2026-12-25', 'start': '2026-11-08'}
+2026-11-08 16:42:42,229 INFO assistente.graph: risultato strumento: Errore: servizio giorni non raggiungibile a http://127.0.0.1:8000. Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a mente.
+Assistente> Mi dispiace, non sono riuscito a calcolare esattamente quanti giorni mancano a Natale utilizzando gli strumenti disponibili al momento.
+2026-11-08 16:43:15,976 INFO assistente.graph: ← modello [chiamata] calculate {'expression': '2 + 2'}
+2026-11-08 16:43:15,977 INFO assistente.graph: risultato strumento: 2 + 2 = 4
+Assistente> 2 + 2 fa 4.
 ```
 
-La chat continua con la domanda successiva, ma **il modello ha ignorato l'errore**: ha risposto
-comunque con un numero (qui esatto, ma non venuto dallo strumento). Una risposta sulle date che
-segue un `Errore: servizio giorni non raggiungibile` non va presa per calcolata.
+La chat continua con la domanda successiva. Il testo d'errore e una frase in coda al prompt di
+sistema chiedono al modello di dire che il calcolo non è disponibile: con `google/gemma-4-e2b`,
+nella serie del 2026-11-08 (servizio spento, «Quanti giorni mancano a Natale?», 10 tentativi), 7
+risposte su 10 lo hanno fatto; le altre 3 contenevano comunque un numero di giorni (prima della
+modifica 8 su 8). Una risposta sulle date con un numero, se nei log compare
+`Errore: servizio giorni …`, non è calcolata e non va presa per buona.
 
 Con `google/gemma-4-e2b` nella serie del 2026-11-05 (10 tentativi per domanda, una sessione nuova
 ciascuno, servizio avviato): «Quanti giorni mancano a Natale?» → `days_between` con `end`
@@ -446,7 +452,7 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `LM Studio non raggiungibile a …` (codice 1) | server di LM Studio spento o porta diversa | avvia il server in LM Studio; controlla `LMSTUDIO_BASE_URL` |
 | lo stesso messaggio solo in Docker | il container non raggiunge l'host | prova il comando di controllo della sezione Docker; se fallisce, in LM Studio attiva «Serve on Local Network» |
 | `Modello '…' non disponibile su …` (codice 1) | identificativo errato o modello non scaricato | usa uno degli identificativi elencati nel messaggio |
-| `risultato strumento: Errore: servizio giorni non raggiungibile a …` | il servizio giorni è spento, la porta è diversa o (in Docker) `giorni` non è partito | avvia `python -m uvicorn servizio_giorni.app:app --port 8000` e controlla `Invoke-RestMethod http://127.0.0.1:8000/salute`; verifica `GIORNI_BASE_URL`. Il modello può rispondere comunque con un numero: non viene dallo strumento |
+| `risultato strumento: Errore: servizio giorni non raggiungibile a …` | il servizio giorni è spento, la porta è diversa o (in Docker) `giorni` non è partito | avvia `python -m uvicorn servizio_giorni.app:app --port 8000` e controlla `Invoke-RestMethod http://127.0.0.1:8000/salute`; verifica `GIORNI_BASE_URL`. Con gemma circa 3 risposte su 10 contengono comunque un numero: non viene dallo strumento |
 | `risultato strumento: Errore: data non valida '…'` | la data non esiste (es. `02-30`) o è scritta in un formato diverso da `AAAA-MM-GG` e `MM-GG` | nessuna azione: è il comportamento atteso, il modello riceve il motivo; se la data è reale riscrivila come `2027-06-02` |
 | `risultato strumento: Errore: giorni lavorativi e festività disponibili solo per gli anni 2020-2040.` oppure una risposta `festività non disponibili fuori dagli anni 2020-2040` | la data è fuori dagli anni di `servizio_giorni/festivita.json` | per quegli anni restano solo i giorni di calendario e il giorno della settimana |
 | `Errore: anno … fuori intervallo: ammessi 1900-2100.` | data o risultato fuori dai limiti del servizio | usa date tra il 1900 e il 2100 |

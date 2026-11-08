@@ -303,6 +303,10 @@ def test_400_becomes_error_text(name, args):
     assert tools[name].invoke(args) == f"Errore: {detail}"
 
 
+# Coda dei guasti del servizio (spec §10.1); gli errori 400 non la hanno.
+HINT = "Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a mente."
+
+
 @pytest.mark.parametrize(
     ("response", "code"),
     [
@@ -318,7 +322,7 @@ def test_400_becomes_error_text(name, args):
 def test_unexpected_response(response, code):
     tools, _ = make_tools(response)
     assert tools["date_info"].invoke({}) == (
-        f"Errore: risposta non valida dal servizio giorni (HTTP {code})."
+        f"Errore: risposta non valida dal servizio giorni (HTTP {code}). {HINT}"
     )
 
 
@@ -334,7 +338,7 @@ def test_unreachable(error):
         ("date_info", {}),
     ):
         assert tools[name].invoke(args) == (
-            "Errore: servizio giorni non raggiungibile a http://giorni.test."
+            f"Errore: servizio giorni non raggiungibile a http://giorni.test. {HINT}"
         )
 
 
@@ -349,7 +353,9 @@ def test_unreachable(error):
 )
 def test_http_error_becomes_invalid_response(name, args):
     tools, _ = make_tools(error=httpx.DecodingError("corpo illeggibile"))
-    assert tools[name].invoke(args) == "Errore: risposta non valida dal servizio giorni."
+    assert tools[name].invoke(args) == (
+        f"Errore: risposta non valida dal servizio giorni. {HINT}"
+    )
 
 
 DESCRIPTIONS = {

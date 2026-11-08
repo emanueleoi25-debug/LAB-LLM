@@ -18,6 +18,10 @@ from assistente.tools import utc_now
 TIMEOUT = 5.0  # secondi
 # Anni coperti dal file delle festività del servizio (servizio_giorni/festivita.json).
 _YEARS = "2020-2040"
+# Coda dei testi di guasto del servizio: senza, il modello rispondeva a mente (spec §10.1).
+SERVICE_FAILURE_HINT = (
+    "Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a mente."
+)
 
 DAYS_BETWEEN_DESCRIPTION = (
     "Conta i giorni tra due date: giorni di calendario e giorni lavorativi in Italia "
@@ -134,11 +138,14 @@ def make_date_tools(
         try:
             response = client.get(path, params=params)
         except httpx.TransportError:
-            return f"Errore: servizio giorni non raggiungibile a {base_url}."
+            return f"Errore: servizio giorni non raggiungibile a {base_url}. {SERVICE_FAILURE_HINT}"
         except httpx.HTTPError:
             # Errori non di trasporto (per esempio corpo non decodificabile): può mancare il codice.
-            return "Errore: risposta non valida dal servizio giorni."
-        invalid = f"Errore: risposta non valida dal servizio giorni (HTTP {response.status_code})."
+            return f"Errore: risposta non valida dal servizio giorni. {SERVICE_FAILURE_HINT}"
+        invalid = (
+            f"Errore: risposta non valida dal servizio giorni (HTTP {response.status_code}). "
+            f"{SERVICE_FAILURE_HINT}"
+        )
         try:
             data = response.json()
         except ValueError:

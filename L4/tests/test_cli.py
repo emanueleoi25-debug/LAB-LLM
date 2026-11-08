@@ -144,8 +144,16 @@ def test_system_prompt_asks_to_call_tools_anyway():
 
 
 def test_system_prompt_mentions_date_tools():
-    assert SYSTEM_PROMPT.endswith(
+    assert (
         " Per contare giorni tra date, calcolare scadenze in giorni di calendario o lavorativi "
         "e sapere se una data è festiva o lavorativa usa gli strumenti days_between, add_days, "
         "add_business_days e date_info; se l'utente non dice l'anno passa la data come MM-GG."
+    ) in SYSTEM_PROMPT
+
+
+def test_system_prompt_ends_with_service_failure_rule():
+    assert SYSTEM_PROMPT.endswith(
+        " Se uno strumento risponde che il servizio giorni non è raggiungibile o che la sua "
+        "risposta non è valida, di' all'utente che il calcolo non è disponibile e non dare "
+        "risultati calcolati a mente o con altri strumenti."
     )
