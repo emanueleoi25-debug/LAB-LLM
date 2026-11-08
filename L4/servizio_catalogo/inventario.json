@@ -1,0 +1,400 @@
+[
+  {
+    "codice": "LAB-001",
+    "nome": "Multimetro digitale",
+    "categoria": "Misura",
+    "parole_chiave": [
+      "tester"
+    ],
+    "descrizione": "Misura tensione, corrente e resistenza con scala automatica.",
+    "posizione": "Armadio A, ripiano 1",
+    "quantita": 6,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-002",
+    "nome": "Oscilloscopio a 2 canali",
+    "categoria": "Misura",
+    "parole_chiave": [
+      "scope"
+    ],
+    "descrizione": "Oscilloscopio digitale da 100 MHz con due canali.",
+    "posizione": "Armadio A, ripiano 2",
+    "quantita": 2,
+    "stato": "disponibile",
+    "note": "Prenotare con il tecnico di laboratorio."
+  },
+  {
+    "codice": "LAB-003",
+    "nome": "Pinza amperometrica",
+    "categoria": "Misura",
+    "parole_chiave": [],
+    "descrizione": "Misura la corrente alternata senza interrompere il circuito.",
+    "posizione": "Armadio A, ripiano 1",
+    "quantita": 1,
+    "stato": "in manutenzione",
+    "note": "Display da sostituire."
+  },
+  {
+    "codice": "LAB-004",
+    "nome": "Analizzatore di stati logici",
+    "categoria": "Misura",
+    "parole_chiave": [
+      "logic analyzer"
+    ],
+    "descrizione": "Analizzatore USB a 8 canali per segnali digitali.",
+    "posizione": "Armadio A, ripiano 3",
+    "quantita": 1,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-005",
+    "nome": "Alimentatore da banco 0-30 V",
+    "categoria": "Alimentazione",
+    "parole_chiave": [
+      "alimentatore"
+    ],
+    "descrizione": "Alimentatore regolabile da 0 a 30 V e da 0 a 5 A.",
+    "posizione": "Armadio B, ripiano 1",
+    "quantita": 4,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-006",
+    "nome": "Batterie AA ricaricabili",
+    "categoria": "Alimentazione",
+    "parole_chiave": [
+      "pile",
+      "stilo"
+    ],
+    "descrizione": "Batterie NiMH da 2000 mAh.",
+    "posizione": "Armadio B, ripiano 2",
+    "quantita": 24,
+    "stato": "disponibile",
+    "note": "Rimettere in carica dopo l'uso."
+  },
+  {
+    "codice": "LAB-007",
+    "nome": "Caricabatterie AA/AAA",
+    "categoria": "Alimentazione",
+    "parole_chiave": [
+      "caricatore"
+    ],
+    "descrizione": "Carica fino a quattro batterie AA o AAA.",
+    "posizione": "Armadio B, ripiano 2",
+    "quantita": 3,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-008",
+    "nome": "Power bank USB",
+    "categoria": "Alimentazione",
+    "parole_chiave": [
+      "batteria esterna"
+    ],
+    "descrizione": "Batteria esterna da 10000 mAh con uscita USB-C.",
+    "posizione": "Armadio B, ripiano 2",
+    "quantita": 5,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-009",
+    "nome": "Stazione saldante",
+    "categoria": "Saldatura",
+    "parole_chiave": [
+      "saldatore"
+    ],
+    "descrizione": "Stazione con temperatura regolabile da 200 a 450 °C.",
+    "posizione": "Banco 2",
+    "quantita": 3,
+    "stato": "disponibile",
+    "note": "Spegnere a fine lavoro."
+  },
+  {
+    "codice": "LAB-010",
+    "nome": "Filo di stagno 0,8 mm",
+    "categoria": "Saldatura",
+    "parole_chiave": [
+      "stagno"
+    ],
+    "descrizione": "Bobina da 100 g di lega senza piombo.",
+    "posizione": "Armadio C, ripiano 1",
+    "quantita": 5,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-011",
+    "nome": "Pompetta dissaldante",
+    "categoria": "Saldatura",
+    "parole_chiave": [
+      "dissaldatore"
+    ],
+    "descrizione": "Pompa a molla per rimuovere lo stagno.",
+    "posizione": "Armadio C, ripiano 1",
+    "quantita": 4,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-012",
+    "nome": "Aspiratore fumi di saldatura",
+    "categoria": "Saldatura",
+    "parole_chiave": [],
+    "descrizione": "Aspiratore da banco con filtro a carboni attivi.",
+    "posizione": "Banco 2",
+    "quantita": 1,
+    "stato": "in manutenzione",
+    "note": "Filtro in sostituzione."
+  },
+  {
+    "codice": "LAB-013",
+    "nome": "Arduino Uno",
+    "categoria": "Microcontrollori",
+    "parole_chiave": [],
+    "descrizione": "Scheda con ATmega328P per prototipi.",
+    "posizione": "Cassettiera D, cassetto 1",
+    "quantita": 12,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-014",
+    "nome": "Raspberry Pi 5",
+    "categoria": "Microcontrollori",
+    "parole_chiave": [],
+    "descrizione": "Computer a scheda singola con 8 GB di RAM.",
+    "posizione": "Cassettiera D, cassetto 2",
+    "quantita": 4,
+    "stato": "disponibile",
+    "note": "Solo per i progetti d'esame."
+  },
+  {
+    "codice": "LAB-015",
+    "nome": "ESP32 DevKit",
+    "categoria": "Microcontrollori",
+    "parole_chiave": [
+      "wifi",
+      "bluetooth"
+    ],
+    "descrizione": "Scheda con Wi-Fi e Bluetooth integrati.",
+    "posizione": "Cassettiera D, cassetto 1",
+    "quantita": 8,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-016",
+    "nome": "Raspberry Pi Pico",
+    "categoria": "Microcontrollori",
+    "parole_chiave": [],
+    "descrizione": "Microcontrollore RP2040 a basso costo.",
+    "posizione": "Cassettiera D, cassetto 2",
+    "quantita": 0,
+    "stato": "esaurito",
+    "note": "Riordino richiesto."
+  },
+  {
+    "codice": "LAB-017",
+    "nome": "Kit resistenze assortite",
+    "categoria": "Componenti",
+    "parole_chiave": [
+      "resistori"
+    ],
+    "descrizione": "600 resistenze da 10 Ω a 1 MΩ.",
+    "posizione": "Cassettiera E, cassetto 1",
+    "quantita": 10,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-018",
+    "nome": "Kit condensatori assortiti",
+    "categoria": "Componenti",
+    "parole_chiave": [],
+    "descrizione": "Condensatori ceramici ed elettrolitici.",
+    "posizione": "Cassettiera E, cassetto 1",
+    "quantita": 6,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-019",
+    "nome": "LED 5 mm assortiti",
+    "categoria": "Componenti",
+    "parole_chiave": [
+      "diodi luminosi"
+    ],
+    "descrizione": "LED rossi, verdi, gialli e blu.",
+    "posizione": "Cassettiera E, cassetto 2",
+    "quantita": 200,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-020",
+    "nome": "Breadboard 830 punti",
+    "categoria": "Componenti",
+    "parole_chiave": [
+      "basetta sperimentale"
+    ],
+    "descrizione": "Basetta senza saldature per montaggi di prova.",
+    "posizione": "Cassettiera E, cassetto 3",
+    "quantita": 15,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-021",
+    "nome": "Cavi jumper maschio-maschio",
+    "categoria": "Cavi e connettori",
+    "parole_chiave": [
+      "ponticelli"
+    ],
+    "descrizione": "Confezione da 40 cavetti per breadboard.",
+    "posizione": "Armadio B, ripiano 3",
+    "quantita": 20,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-022",
+    "nome": "Cavo USB-C",
+    "categoria": "Cavi e connettori",
+    "parole_chiave": [],
+    "descrizione": "Cavo USB-C da 1 m per dati e ricarica.",
+    "posizione": "Armadio B, ripiano 3",
+    "quantita": 10,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-023",
+    "nome": "Cavo HDMI",
+    "categoria": "Cavi e connettori",
+    "parole_chiave": [],
+    "descrizione": "Cavo HDMI da 2 m.",
+    "posizione": "Armadio B, ripiano 3",
+    "quantita": 0,
+    "stato": "esaurito",
+    "note": ""
+  },
+  {
+    "codice": "LAB-024",
+    "nome": "Sonde per oscilloscopio",
+    "categoria": "Cavi e connettori",
+    "parole_chiave": [
+      "puntali"
+    ],
+    "descrizione": "Sonde 1x/10x da 100 MHz.",
+    "posizione": "Armadio A, ripiano 2",
+    "quantita": 4,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-025",
+    "nome": "Set di cacciaviti di precisione",
+    "categoria": "Utensili",
+    "parole_chiave": [
+      "giraviti"
+    ],
+    "descrizione": "24 punte intercambiabili con impugnatura.",
+    "posizione": "Armadio C, ripiano 2",
+    "quantita": 5,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-026",
+    "nome": "Pinza spelafili",
+    "categoria": "Utensili",
+    "parole_chiave": [
+      "spellafili"
+    ],
+    "descrizione": "Spela fili da 0,2 a 6 mm².",
+    "posizione": "Armadio C, ripiano 2",
+    "quantita": 4,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-027",
+    "nome": "Tronchesino",
+    "categoria": "Utensili",
+    "parole_chiave": [
+      "tronchese"
+    ],
+    "descrizione": "Tronchese a taglio laterale per reofori.",
+    "posizione": "Armadio C, ripiano 2",
+    "quantita": 6,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-028",
+    "nome": "Pistola per colla a caldo",
+    "categoria": "Utensili",
+    "parole_chiave": [
+      "colla"
+    ],
+    "descrizione": "Pistola per stick da 11 mm.",
+    "posizione": "Armadio C, ripiano 2",
+    "quantita": 2,
+    "stato": "disponibile",
+    "note": "Usare sul tappetino di silicone."
+  },
+  {
+    "codice": "LAB-029",
+    "nome": "Occhiali protettivi",
+    "categoria": "Sicurezza",
+    "parole_chiave": [],
+    "descrizione": "Occhiali in policarbonato con protezione laterale.",
+    "posizione": "Armadio sicurezza",
+    "quantita": 15,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-030",
+    "nome": "Braccialetto antistatico",
+    "categoria": "Sicurezza",
+    "parole_chiave": [
+      "esd"
+    ],
+    "descrizione": "Braccialetto con cavo di messa a terra.",
+    "posizione": "Armadio sicurezza",
+    "quantita": 8,
+    "stato": "disponibile",
+    "note": ""
+  },
+  {
+    "codice": "LAB-031",
+    "nome": "Estintore a CO2",
+    "categoria": "Sicurezza",
+    "parole_chiave": [],
+    "descrizione": "Estintore da 2 kg per apparecchi elettrici.",
+    "posizione": "Ingresso",
+    "quantita": 2,
+    "stato": "disponibile",
+    "note": "Controllo semestrale a cura della manutenzione."
+  },
+  {
+    "codice": "LAB-032",
+    "nome": "Cassetta di pronto soccorso",
+    "categoria": "Sicurezza",
+    "parole_chiave": [
+      "primo soccorso"
+    ],
+    "descrizione": "Cassetta di medicazione per luoghi di lavoro.",
+    "posizione": "Ingresso",
+    "quantita": 1,
+    "stato": "disponibile",
+    "note": ""
+  }
+]
