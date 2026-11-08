@@ -398,3 +398,100 @@ Spec §9. Stessi Global Constraints del piano. Suite attuale: 379 passed, 6 skip
   gli esiti dello Step 3 e, tra le cose da provare o da decidere, il rischio `GG-MM` (spec §9),
   il comportamento a servizio spento e lo stesso possibile ritardo di `LMSTUDIO_BASE_URL`; esito in
   `Es.1/plan.md`. Commit `docs: esito delle correzioni dopo la revisione finale`.
+
+## Aggiunte prima del merge in `dev` (2026-11-08)
+
+Stato: proposta del 2026-11-08, **in attesa di approvazione**.
+
+Spec §10 (approvata il 2026-11-08). Stessi Global Constraints del piano. Suite attuale: 383 passed,
+6 skipped; i Task 9-10 cambiano testi attesi di test esistenti, senza test nuovi, quindi le conte
+restano 383/6. Serie sui modelli: solo `google/gemma-4-e2b`, script usa e getta nella scratchpad
+(`create_graph` + `ask`, una sessione nuova per tentativo), esiti nel registro. Un esito sotto il
+criterio si riporta all'utente e non si corregge senza accordo. Il servizio locale e quello Docker
+non vanno mai avviati insieme; a fine prova la porta 8000 resta libera.
+
+### Task 9: il testo dei guasti del servizio chiede di non rispondere a mente (spec §10.1)
+
+**Files:**
+- Modify: `assistente/dates.py` (`_call`), `README.md` (tabella degli errori, esempio con il
+  servizio spento, riga di diagnosi)
+- Test: `tests/test_dates.py`
+
+- [ ] **Step 1: misura prima**: serie con il servizio spento, «Quanti giorni mancano a Natale?», 10
+  tentativi sul codice attuale (già avviata il 2026-11-08 prima del piano). Conta le risposte senza
+  un numero di giorni.
+- [ ] **Step 2: test**: in `test_unreachable`, `test_unexpected_response` e
+  `test_http_error_becomes_invalid_response` i testi attesi finiscono con
+  `" Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a mente."`, per
+  esempio `"Errore: servizio giorni non raggiungibile a http://giorni.test. Non è possibile
+  calcolare il risultato: dillo all'utente e non calcolarlo a mente."`. `test_400_becomes_error_text`
+  resta invariato (nessuna coda sugli errori di validazione).
+- [ ] **Step 3:** `python -m pytest tests/test_dates.py -v` → FAIL nei tre test modificati.
+- [ ] **Step 4: implementare**: in `assistente/dates.py` una costante
+  `SERVICE_FAILURE_HINT = "Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a mente."`,
+  aggiunta (dopo uno spazio) ai tre testi «non raggiungibile», «risposta non valida (HTTP …)» e
+  «risposta non valida» senza codice. Il ramo del 400 non cambia.
+- [ ] **Step 5:** `python -m pytest` → 383 passed, 6 skipped.
+- [ ] **Step 6: misura dopo**: stessa serie dello Step 1 (servizio spento, 10 tentativi). Criterio:
+  almeno 8 risposte su 10 senza un numero di giorni; un numero conta come fallimento anche se
+  esatto. Una domanda successiva nella stessa sessione («Quanto fa 2 + 2?») → `calculate`, la chat
+  continua.
+- [ ] **Step 7: README**: righe «servizio spento» e «risposta inattesa» della tabella degli errori
+  con il testo nuovo; esempio di log con il servizio spento preso dalla serie dello Step 6 (con il
+  commento aggiornato all'esito); riga di diagnosi «servizio giorni non raggiungibile».
+- [ ] **Step 8: commit** `fix(strumenti): i guasti del servizio giorni chiedono di non rispondere a mente`
+  (`git add assistente/dates.py tests/test_dates.py README.md`).
+
+### Task 10: `days_between` non aggiunge l'anno alle date senza anno (spec §10.3)
+
+**Files:**
+- Modify: `assistente/dates.py` (`DAYS_BETWEEN_DESCRIPTION`)
+- Test: `tests/test_dates.py` (`DESCRIPTIONS`)
+
+- [ ] **Step 1: test**: in `DESCRIPTIONS["days_between"]` il letterale diventa il testo esatto della
+  spec §10.3 (cambia solo «… passa MM-GG (es. '12-25' per Natale) senza aggiungere tu l'anno: si usa
+  la prossima occorrenza.»).
+- [ ] **Step 2:** `python -m pytest tests/test_dates.py -k descriptions -v` → FAIL su `days_between`.
+- [ ] **Step 3: implementare**: `DAYS_BETWEEN_DESCRIPTION` uguale al letterale. Le altre tre
+  descrizioni e il prompt di sistema non cambiano.
+- [ ] **Step 4:** `python -m pytest` → 383 passed, 6 skipped.
+- [ ] **Step 5: serie** (servizio locale acceso, `python -m uvicorn servizio_giorni.app:app --port 8000`):
+  «Quanti giorni mancano all'11 febbraio?», 10 tentativi. Criterio: nessuna data di arrivo già
+  passata (`end` `02-11` o nell'anno successivo) in 10 su 10; sotto, la frase resta se almeno 8 su
+  10 (come lo spike) e l'esito si annota. Controlli: «Quanti giorni mancano a Natale?» e «Il 2
+  giugno 2027 è festivo?», 2 tentativi ciascuno, come nella serie del 2026-11-05.
+- [ ] **Step 6: commit** `fix(strumenti): days_between non aggiunge l'anno alle date senza anno`
+  (`git add assistente/dates.py tests/test_dates.py`).
+
+### Task 11: fuso dei log in Docker e 127.0.0.1 per LM Studio (spec §10.2)
+
+**Files:**
+- Modify: `compose.yaml` (servizio `assistente`), `.env.example`, `README.md` (tabella delle
+  variabili, comando `Invoke-RestMethod` di LM Studio, sezione Docker Compose); `.env` locale fuori
+  da Git
+
+- [ ] **Step 1: misura prima**: tempo della prima richiesta `GET /v1/models` con httpx (client
+  nuovo per ogni misura, 3 misure per indirizzo) verso `http://localhost:1234/v1` e
+  `http://127.0.0.1:1234/v1` (script usa e getta nella scratchpad).
+- [ ] **Step 2: 127.0.0.1**: `LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1` in `.env.example` e nel
+  `.env` locale; nel README l'esempio della tabella, con la stessa spiegazione di `GIORNI_BASE_URL`
+  (LM Studio ascolta solo su `127.0.0.1`, `localhost` prova prima `::1`), e il comando
+  `Invoke-RestMethod http://127.0.0.1:1234/v1/models …`.
+- [ ] **Step 3: verifica 127.0.0.1**: `python -m pytest` → 383/6; con il servizio acceso
+  `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` → 6 PASS; il comando
+  `Invoke-RestMethod` del README elenca il modello. Commit
+  `fix(config): indirizzo 127.0.0.1 per LM Studio` (`git add .env.example README.md`).
+- [ ] **Step 4: TZ**: in `compose.yaml`, nell'`environment` di `assistente`, `TZ: Europe/Rome` con un
+  commento (solo l'ora dei log; l'orologio usa `DEFAULT_TIMEZONE`); una frase nella sezione Docker
+  Compose del README.
+- [ ] **Step 5: verifica TZ**: `docker compose --profile test run --rm --build test` → 383/6 (3.14);
+  `"Che ore sono?", "esci" | docker compose run --rm -T --build assistente`: il timestamp dei log
+  coincide con l'ora di Roma (`Get-Date`) e il risultato dello strumento dice ancora
+  `fuso predefinito Europe/Rome`; poi `docker compose stop giorni`. Commit
+  `build: fuso Europe/Rome per i log del container` (`git add compose.yaml README.md`).
+- [ ] **Step 6: registro e piano**: in `docs/registro-test.md` una sessione (10) con lo spike della
+  spec §10.3, le serie dei Task 9-10, i tempi dello Step 1, la verifica TZ e le cose rimaste da
+  provare (checklist in Docker nella verifica completa, checklist con terminale interattivo
+  vero); esito in `Es.1/plan.md`. Commit `docs: esito delle aggiunte prima del merge`.
+- [ ] **Step 7:** chiedere all'utente l'ok per il merge in `dev`. Push solo su richiesta, dopo la
+  verifica completa rieseguita (suite 3.13 e 3.14, LM Studio, checklist Docker).

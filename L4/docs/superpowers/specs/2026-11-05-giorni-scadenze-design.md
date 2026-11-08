@@ -333,7 +333,7 @@ i tempi del §9.2 nel registro. Commit `fix(strumenti):` per il §9.1, `fix(conf
 
 ## 10. Aggiunte prima del merge in `dev` (2026-11-08)
 
-Stato: proposta del 2026-11-08, **in attesa di approvazione**.
+Stato: proposta del 2026-11-08, **approvata** dall'utente il 2026-11-08.
 
 Punti rimasti aperti dopo la §9, scelti dall'utente il 2026-11-08: comportamento del modello con il
 servizio spento, rischio `GG-MM` (prima misurato con uno spike), fuso dei log in Docker e
