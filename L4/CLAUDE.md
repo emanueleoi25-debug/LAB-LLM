@@ -39,10 +39,12 @@ Un'applicazione da terminale in Python che conversa con un modello locale e:
 - Comandi documentati anche per PowerShell (Windows).
 
 ## Struttura e comandi
-- Pacchetto `assistente/`: `config.py` (variabili d'ambiente, `GIORNI_BASE_URL` e
-  `CATALOGO_BASE_URL` obbligatorie),
+- Pacchetto `assistente/`: `config.py` (variabili d'ambiente, `GIORNI_BASE_URL`,
+  `CATALOGO_BASE_URL` e `NOTE_DB_PATH` obbligatorie),
   `tools.py` (orologio, convertitore, calcolatrice), `dates.py` (strumenti delle date, client HTTP
   del servizio giorni), `catalog.py` (strumenti del catalogo, client HTTP del servizio catalogo),
+  `mcp_client.py` (client MCP generico: strumenti da `list_tools`, una sessione stdio per
+  chiamata), `notes.py` (strumenti delle note, parametri del sottoprocesso del server delle note),
   `units.py` (tabella delle unità e conversione), `arithmetic.py` (analisi e calcolo
   sicuro delle espressioni aritmetiche),
   `cities.py` (ricerca città → fuso su archivio locale), `graph.py` (stato, nodi, instradamento,
@@ -54,11 +56,15 @@ Un'applicazione da terminale in Python che conversa con un modello locale e:
 - Servizio `servizio_catalogo/` (FastAPI, indipendente da `assistente/`): `inventario.py`, `app.py`,
   `inventario.json` (32 articoli inventati). Avvio locale in un terzo terminale:
   `python -m uvicorn servizio_catalogo.app:app --port 8001`.
+- Server MCP `servizio_note/` (SDK `mcp`, indipendente da `assistente/`): `archivio.py` (SQLite),
+  `server.py` (strumenti `add_note`, `list_notes`, `delete_note`). Non si avvia a mano: l'agente
+  lo lancia come sottoprocesso stdio (`python -m servizio_note.server`).
 - Registri in `docs/`: `registro-test.md` (esiti delle verifiche eseguite) e
   `registro-modifiche.md` (correzioni con causa, soluzione, ragionamento, commit e verifica).
 - Docker: `Dockerfile` multi-stage (`app` predefinito, `test` per la suite) e `compose.yaml`
   (progetto `assistente-laboratorio`, servizi `assistente`, `giorni` (porta `127.0.0.1:8000`),
-  `catalogo` (porta `127.0.0.1:8001`) e `test` con profilo `test`).
+  `catalogo` (porta `127.0.0.1:8001`) e `test` con profilo `test`; volume `note` per l'archivio
+  delle note, montato su `/app/dati` del servizio `assistente`).
 - Test in `tests/`; `tests/fakes.py` contiene il modello finto `ScriptedModel`.
 - Ambiente locale: `py -3.13 -m venv .venv`, poi `.\.venv\Scripts\Activate.ps1` e
   `python -m pip install -r requirements-dev.txt`.
