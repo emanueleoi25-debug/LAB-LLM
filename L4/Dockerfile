@@ -16,6 +16,7 @@ COPY pytest.ini .
 COPY assistente/ assistente/
 COPY servizio_giorni/ servizio_giorni/
 COPY servizio_catalogo/ servizio_catalogo/
+COPY servizio_note/ servizio_note/
 COPY tests/ tests/
 CMD ["python", "-m", "pytest", "-p", "no:cacheprovider"]
 
@@ -24,6 +25,9 @@ FROM base AS app
 COPY assistente/ assistente/
 COPY servizio_giorni/ servizio_giorni/
 COPY servizio_catalogo/ servizio_catalogo/
+COPY servizio_note/ servizio_note/
 RUN useradd --create-home --uid 1000 assistente
+# Cartella dell'archivio delle note: il volume `note` nasce con questo proprietario, quindi scrivibile.
+RUN mkdir -p /app/dati && chown assistente /app/dati
 USER assistente
 CMD ["python", "-m", "assistente"]

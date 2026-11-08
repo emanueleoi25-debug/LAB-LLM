@@ -16,6 +16,10 @@ services:
       # Ora dei log nel fuso di Roma (senza, i timestamp sono in UTC). L'orologio non dipende
       # da TZ: usa DEFAULT_TIMEZONE.
       TZ: Europe/Rome
+      # Archivio delle note (server MCP avviato dall'agente come sottoprocesso): sul volume `note`.
+      NOTE_DB_PATH: /app/dati/note.db
+    volumes:
+      - note:/app/dati
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -47,3 +51,7 @@ services:
       context: .
       target: test
     profiles: ["test"]
+
+volumes:
+  # Note persistenti tra un avvio e l'altro; `docker compose down -v` le cancella.
+  note:
