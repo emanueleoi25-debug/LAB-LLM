@@ -365,6 +365,39 @@ strumento**, senza allungare il prompt di sistema né le descrizioni.
   risposta dice che il calcolo non è disponibile). Un numero nella risposta conta come fallimento
   anche se è esatto.
 
+#### 10.1.1 Esito della verifica e regola nel prompt (aggiunta del 2026-11-08)
+
+Stato: proposta del 2026-11-08, **in attesa di approvazione**.
+
+Serie con il servizio spento («Quanti giorni mancano a Natale?», gemma, una sessione nuova per
+tentativo; serie interrotte dall'utente quando l'esito era chiaro):
+
+| Variante | Senza numero di giorni |
+|---|---|
+| codice prima della §10.1 | 0 su 8 (sempre «47 giorni») |
+| solo testo d'errore con la coda (§10.1) | 0 su 5 (4× «47 giorni», 1× `calculate` → «17 giorni») |
+| testo d'errore + regola in coda al prompt (spike, prompt cambiato solo nello script) | **7 su 10** (3 numeri: 37, 47, 47) |
+
+Il solo testo d'errore non basta: la coda arriva al modello (verificato nel messaggio dello
+strumento), ma gemma la ignora. L'utente ha scelto di **aggiungere la regola in coda al prompt di
+sistema**, insieme al testo d'errore, e di **accettare 7 su 10** come risultato misurato al posto
+del criterio di 8 su 10.
+
+- Prompt di sistema (`SYSTEM_PROMPT` in `assistente/cli.py`): dopo la frase sugli strumenti delle
+  date, in coda, la frase esatta usata nello spike:
+  `Se uno strumento risponde che il servizio giorni non è raggiungibile o che la sua risposta non è valida, di' all'utente che il calcolo non è disponibile e non dare risultati calcolati a mente o con altri strumenti.`
+  («o con altri strumenti» per il caso in cui il modello ha ripiegato su `calculate`.)
+- Il testo d'errore con la coda della §10.1 resta.
+- Test in `tests/test_cli.py`, prima del codice: il prompt **finisce** con la nuova frase (preceduta
+  da uno spazio); il test esistente sulla frase degli strumenti delle date passa da «finisce con»
+  a «contiene».
+- Verifica: la serie dello spike vale come misura, perché il testo del prompt è identico; nessuna
+  nuova serie. Dopo l'implementazione, un'esecuzione reale di `python -m assistente` con il
+  servizio spento («Quanti giorni mancano a Natale?», poi «Quanto fa 2 + 2?») fornisce l'esempio
+  per il README e conferma che la chat continua.
+- README: con `google/gemma-4-e2b` la risposta rispetta l'errore circa 7 volte su 10; una risposta
+  sulle date con un numero, dopo un `Errore: servizio giorni …` nei log, non è calcolata.
+
 ### 10.2 Configurazione: fuso dei log in Docker e `127.0.0.1` per LM Studio
 
 - `compose.yaml`: `TZ: Europe/Rome` nell'`environment` del servizio `assistente`, così i timestamp

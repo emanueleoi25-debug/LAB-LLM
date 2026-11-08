@@ -436,11 +436,23 @@ non vanno mai avviati insieme; a fine prova la porta 8000 resta libera.
   almeno 8 risposte su 10 senza un numero di giorni; un numero conta come fallimento anche se
   esatto. Una domanda successiva nella stessa sessione («Quanto fa 2 + 2?») → `calculate`, la chat
   continua.
+- [x] **Esito Step 1 e 6 (2026-11-08):** prima 0 su 8 senza numero; dopo (solo testo d'errore) 0
+  su 5; criterio mancato, riferito all'utente. Spike con la regola in coda al prompt (solo nello
+  script): 7 su 10. Scelta dell'utente: regola nel prompt e 7 su 10 accettato (spec §10.1.1).
+- [ ] **Step 6a: test** (spec §10.1.1) in `tests/test_cli.py`: `test_system_prompt_ends_with_service_failure_rule`
+  → `SYSTEM_PROMPT.endswith(" Se uno strumento risponde che il servizio giorni non è raggiungibile o che la sua risposta non è valida, di' all'utente che il calcolo non è disponibile e non dare risultati calcolati a mente o con altri strumenti.")`;
+  in `test_system_prompt_mentions_date_tools` `endswith(...)` diventa `... in SYSTEM_PROMPT`.
+- [ ] **Step 6b:** `python -m pytest tests/test_cli.py -v` → FAIL solo nel test nuovo.
+- [ ] **Step 6c: implementare**: la frase in coda a `SYSTEM_PROMPT` in `assistente/cli.py`.
+- [ ] **Step 6d:** `python -m pytest` → 384 passed, 6 skipped (383 + il test nuovo). Poi
+  `python -m assistente` con il servizio spento: «Quanti giorni mancano a Natale?», «Quanto fa 2 +
+  2?», `esci`; log e risposte per lo Step 7 (la chat continua con `calculate`).
 - [ ] **Step 7: README**: righe «servizio spento» e «risposta inattesa» della tabella degli errori
   con il testo nuovo; esempio di log con il servizio spento preso dalla serie dello Step 6 (con il
-  commento aggiornato all'esito); riga di diagnosi «servizio giorni non raggiungibile».
+  commento aggiornato all'esito, circa 7 su 10 con gemma); riga di diagnosi «servizio giorni non
+  raggiungibile».
 - [ ] **Step 8: commit** `fix(strumenti): i guasti del servizio giorni chiedono di non rispondere a mente`
-  (`git add assistente/dates.py tests/test_dates.py README.md`).
+  (`git add assistente/dates.py tests/test_dates.py assistente/cli.py tests/test_cli.py README.md`).
 
 ### Task 10: `days_between` non aggiunge l'anno alle date senza anno (spec §10.3)
 
