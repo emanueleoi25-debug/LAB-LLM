@@ -1,6 +1,6 @@
 # Catalogo locale
 
-Data: 2026-11-08, da approvare. Branch: `feat/catalogo-locale` (da `dev` = `3800b10`). Quarto strumento
+Data: 2026-11-08, approvata dall'utente il 2026-11-08. Branch: `feat/catalogo-locale` (da `dev` = `3800b10`). Quarto strumento
 della roadmap in `CLAUDE.md`, secondo servizio FastAPI. Ricalca la struttura di
 `2026-11-05-giorni-scadenze-design.md` (servizio separato, client sottili nell'agente, testi d'errore
 che chiedono di non rispondere a mente, §10.1).
