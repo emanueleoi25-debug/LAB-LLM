@@ -3,6 +3,51 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-08 (13) — commit `9cef1c5`
+
+Note persistenti (spec `2026-11-08-note-persistenti-design.md`, piano Task 1-6, branch
+`feat/note-persistenti`). Modello `google/gemma-4-e2b` in LM Studio sull'host. Il `.env` locale non
+ha ancora `CATALOGO_BASE_URL` e `NOTE_DB_PATH`: nelle prove dalla venv le variabili sono state
+passate nell'ambiente del comando, con l'archivio nella scratchpad. Serie con uno script usa e
+getta nella scratchpad (`create_graph` + `ask`, una sessione e un archivio nuovi per tentativo).
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello, su `0a00074` | venv locale, Python 3.13.14 | `python -m pytest` | 524 passed, 7 skipped |
+| Suite senza modello, su `1421b3d` | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 524 passed, 7 skipped (compreso il test stdio nel container) |
+| Dipendenza `mcp==2.3.0` | venv locale | `python -m pip install -r requirements-dev.txt`, `python -m pip check` | `No broken requirements found.` |
+| Persistenza dalla venv | venv locale | due `python -m assistente` di seguito: «Annota che il banco 3 ha la presa rotta», poi «Quali note ho?» | `add_note` → `Nota 1 salvata: «Il banco 3 ha la presa rotta».`; al secondo avvio `list_notes` → la nota, risposta che la cita |
+| Avvio senza la variabile | venv locale | `python -m assistente` con `NOTE_DB_PATH` vuota | `Configurazione non valida: NOTE_DB_PATH mancante`, uscita 2 |
+| Server delle note che non parte | venv locale, script usa e getta con `PROJECT_DIR` senza `servizio_note` | `main()` | sopra, l'errore del server `No module named 'servizio_note'`; poi `Server MCP delle note non avviabile: Connection closed`, uscita 1 |
+| Persistenza in Docker | container `assistente` + LM Studio sull'host | `"Annota che il banco 3 ha la presa rotta", "esci" \| docker compose run --rm -T --build assistente`, poi `"Quali note ho?", "esci" \| docker compose run --rm -T assistente` | `add_note` e poi `list_notes` con `- 1 (2026-11-08 20:25): Il banco 3 ha la presa rotta`; volume `assistente-laboratorio_note` creato |
+| Errore previsto in Docker | come sopra | `"Cancella la nota 99", "esci" \| docker compose run --rm -T assistente` | `delete_note {'id': 99}` → `Errore: nessuna nota con id 99. Usa list_notes per vedere gli id.`; risposta «Non è stata trovata alcuna nota con l'ID 99.»; nessuna riga `Tool '…' failed` su stderr |
+| Prove reali con LM Studio, servizi giorni e catalogo avviati | venv locale | `RUN_LMSTUDIO_TESTS=1 … python -m pytest -m lmstudio -v` | 8 passed (731,76 s: LM Studio più lento del solito, 143 s il 2026-11-08 per 7 prove) |
+| Serie della spec §7 | venv locale | 30 tentativi (vedi sotto) | 30 su 30 |
+
+Test nuovi: `tests/test_archivio_note.py` (6), `tests/test_server_note.py` (21, server in-process
+con `mcp.Client`), `tests/test_mcp_client.py` (9, compresi tre avvii di sottoprocessi che falliscono
+o non rispondono), `tests/test_note_stdio.py` (1, server vero via stdio), 2 in
+`tests/test_config.py`, 3 in `tests/test_cli.py`; `test_system_prompt_ends_with_catalog_rule` è
+diventato `test_system_prompt_contains_catalog_rule`. Ogni gruppo è stato visto fallire prima del
+codice. Dopo il test del server bloccato non resta alcun processo `python` orfano.
+
+Serie (decisione dell'utente: 30 tentativi invece di 50 per la lentezza di LM Studio, soglia della
+spec letta in proporzione; nessun errore di LM Studio, nessuna chiamata scritta come testo):
+
+| Domanda | Archivio | Esito |
+|---|---|---|
+| «Annota che il banco 3 ha la presa rotta» | vuoto | 9 su 9 `add_note` con «presa» nel testo (serie fermata durante il decimo tentativo) |
+| «Quali note ho salvato?» | 3 note | 5 su 5 `list_notes` e risposta con le tre note e i loro id; ora delle note (18:00 UTC) riportata come 19:00 |
+| «Cancella la nota sulla presa del banco 3» | 3 note | 5 su 5 `list_notes` poi `delete_note {'id': 2}`; nell'archivio restano le note 1 e 3 |
+| «Cancella la nota 99» | 3 note | 5 su 5 `delete_note {'id': 99}` e risposta «Non è stata trovata alcuna nota con l'ID 99.» |
+| «Annota che il banco 3 ha la presa rotta» | `NOTE_DB_PATH` = una cartella | 6 su 6 `add_note` → `Errore: archivio delle note non utilizzabile (unable to open database file). …`; risposte come «Mi dispiace, non sono riuscito a salvare la nota. L'archivio delle note non è utilizzabile in questo momento.»; nessuna dice che la nota è salvata |
+
+### Resta da provare
+
+- Checklist da terminale interattivo vero (senza `-T`), con le voci delle note.
+- La verifica completa prima del push (tutte le voci della checklist Docker).
+- Nel volume Docker `assistente-laboratorio_note` resta la nota 1 di prova.
+
 ## Sessione del 2026-11-08 (12) — commit `7123f77`
 
 Correzione dopo la revisione finale del catalogo (spec §9.1, piano Task 7, branch

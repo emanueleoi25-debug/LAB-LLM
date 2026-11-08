@@ -37,6 +37,7 @@ Le variabili d'ambiente hanno la precedenza su `.env`, che resta fuori da Git.
 | `LMSTUDIO_MODEL` | sì | — | identificativo del modello come restituito da `GET /v1/models` |
 | `GIORNI_BASE_URL` | sì | — | indirizzo del servizio giorni, es. `http://127.0.0.1:8000`: con `localhost` Windows prova prima `::1`, dove uvicorn non ascolta, e ogni chiamata costa circa 2 s in più (in Docker lo imposta `compose.yaml`) |
 | `CATALOGO_BASE_URL` | sì | — | indirizzo del servizio catalogo, es. `http://127.0.0.1:8001` (in Docker lo imposta `compose.yaml`) |
+| `NOTE_DB_PATH` | sì | — | file SQLite delle note, es. `dati/note.db`, relativo alla cartella da cui avvii l'app (in Docker lo imposta `compose.yaml`) |
 | `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non indica una città (nome IANA) |
 | `MAX_TOOL_STEPS` | no | `3` | giri modello→strumenti consentiti per ogni domanda (intero ≥ 1) |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
@@ -68,11 +69,15 @@ python -m assistente
 ```
 
 L'applicazione si avvia anche con i servizi spenti: non li controlla all'avvio. Solo gli
-strumenti del servizio spento rispondono allora con un errore (vedi Diagnosi).
+strumenti del servizio spento rispondono allora con un errore (vedi Diagnosi). Il server delle
+note invece non va avviato a mano: lo avvia l'applicazione (vedi
+[Strumenti delle note](#strumenti-delle-note)).
 
 All'avvio l'applicazione controlla che LM Studio risponda e che il modello configurato sia
 disponibile; altrimenti termina con codice 1 e un messaggio che riporta l'indirizzo e i modelli
-disponibili. Una variabile mancante o non valida fa terminare con codice 2.
+disponibili. Poi legge gli strumenti dal server delle note: se il server non parte termina con
+codice 1 e `Server MCP delle note non avviabile: …`. Una variabile mancante o non valida fa
+terminare con codice 2.
 
 Scrivi una domanda dopo `Tu>`. Per uscire: `esci`, `exit`, Ctrl+C oppure Ctrl+Z seguito da Invio
 (Ctrl+D su Linux/macOS). Se il modello non risponde durante la sessione, la domanda viene scartata
@@ -419,6 +424,63 @@ risposta che cita il tecnico, 10 su 10; «Avete una stampante 3D?» → `search_
 risposto che l'inventario non è consultabile, senza posizioni inventate, 10 su 10. Dettagli in
 [`docs/registro-test.md`](docs/registro-test.md).
 
+## Strumenti delle note
+
+Le note restano anche dopo l'uscita dalla chat. Le gestisce un server MCP separato,
+`servizio_note` (SDK ufficiale `mcp`), che non importa nulla da `assistente` e salva le note in un
+file SQLite (`NOTE_DB_PATH`). L'agente non lo raggiunge via HTTP: lo avvia come sottoprocesso
+(`python -m servizio_note.server`) e gli parla via stdio. All'avvio legge l'elenco degli strumenti
+dal server (`list_tools`); poi ogni chiamata a uno strumento avvia il server, apre una sessione,
+chiama lo strumento e chiude tutto (circa 1 s in più per chiamata). Il codice del client MCP è in
+`assistente/mcp_client.py` e non contiene nulla di specifico delle note.
+
+| Strumento | Parametri | Che cosa fa |
+|---|---|---|
+| `add_note` | `text` | salva una nota (spazi esterni tolti, al massimo 1000 caratteri) |
+| `list_notes` | nessuno | elenca le note dalla più recente con id, data e ora (fuso `DEFAULT_TIMEZONE`) e testo, al massimo 20 righe |
+| `delete_note` | `id` | elimina una nota dato il suo id |
+
+Il modello elimina per id: se l'utente descrive la nota («cancella la nota sulla presa») chiama
+prima `list_notes`. Un id eliminato non viene mai riassegnato. Il file e la sua cartella vengono
+creati al primo uso.
+
+| Caso | Esempio di risultato |
+|---|---|
+| `add_note` | `Nota 1 salvata: «Il banco 3 ha la presa rotta».` |
+| `list_notes` | `1 nota salvata:` seguito da `- 1 (2026-11-08 20:25): Il banco 3 ha la presa rotta` |
+| nessuna nota | `Nessuna nota salvata.` |
+| `delete_note` | `Nota 1 eliminata: «Il banco 3 ha la presa rotta».` |
+| id inesistente | `Errore: nessuna nota con id 99. Usa list_notes per vedere gli id.` |
+| testo vuoto o troppo lungo | `Errore: il testo della nota è vuoto.` / `Errore: il testo della nota supera 1000 caratteri.` |
+| archivio non utilizzabile | `Errore: archivio delle note non utilizzabile (…). Non è possibile leggere o modificare le note: dillo all'utente e non inventarle.` |
+| server che non risponde durante una chiamata | `Errore: server delle note non disponibile (nessuna risposta entro 10 s). Non è possibile …` |
+
+Esempio dal container (2026-11-08, due avvii di seguito; il risultato dell'elenco occupa due righe
+del log):
+
+```
+2026-11-08 20:25:49,488 INFO assistente.graph: ← modello [chiamata] add_note {'text': 'Il banco 3 ha la presa rotta'}
+2026-11-08 20:25:50,768 INFO assistente.graph: risultato strumento: Nota 1 salvata: «Il banco 3 ha la presa rotta».
+Assistente> Nota salvata: Il banco 3 ha la presa rotta.
+2026-11-08 20:26:13,638 INFO assistente.graph: ← modello [chiamata] list_notes {}
+2026-11-08 20:26:14,839 INFO assistente.graph: risultato strumento: 1 nota salvata:
+- 1 (2026-11-08 20:25): Il banco 3 ha la presa rotta
+Assistente> Hai una nota salvata con l'ID 1: "Il banco 3 ha la presa rotta".
+```
+
+Le note della venv (il file indicato da `NOTE_DB_PATH`, di solito `dati/note.db`) e quelle di
+Docker (il volume `note`) sono archivi separati. `dati/` e i file `*.db` restano fuori da Git.
+
+Con `google/gemma-4-e2b` nella serie del 2026-11-08 (una sessione e un archivio nuovi per
+tentativo; serie ridotta per la lentezza di LM Studio): «Annota che il banco 3 ha la presa rotta» →
+`add_note` con «presa» nel testo, 9 su 9; «Quali note ho salvato?» → `list_notes` e risposta con
+tutte e tre le note preparate, 5 su 5; «Cancella la nota sulla presa del banco 3» → `list_notes`,
+poi `delete_note` con l'id giusto e nota sparita dall'archivio, 5 su 5; «Cancella la nota 99» →
+`delete_note` e risposta «Non è stata trovata alcuna nota con l'ID 99.», 5 su 5. Con
+`NOTE_DB_PATH` che punta a una cartella (archivio inutilizzabile) il modello ha chiamato sempre
+`add_note` e ha detto che la nota non è stata salvata, 6 su 6. Dettagli in
+[`docs/registro-test.md`](docs/registro-test.md).
+
 ## Docker Compose
 
 L'immagine usa Python 3.14.9; LM Studio resta sull'host e il container lo raggiunge tramite
@@ -429,6 +491,10 @@ e `CATALOGO_BASE_URL=http://catalogo:8001`; le loro porte sono pubblicate solo s
 e `127.0.0.1:8001`. Non avviare insieme un servizio locale e lo stesso servizio in Docker: usano la
 stessa porta dell'host. Nel servizio `assistente` Compose imposta `TZ: Europe/Rome`, così l'ora
 dei log è quella di Roma e non UTC; l'orologio non dipende da `TZ` (usa `DEFAULT_TIMEZONE`).
+Il server delle note gira dentro il container `assistente`, come sottoprocesso: non ha un servizio
+Compose né porte. Le note stanno sul volume `note` (`NOTE_DB_PATH=/app/dati/note.db`), quindi
+restano tra un `docker compose run` e l'altro; `docker compose down -v` cancella il volume e le
+note.
 
 ```powershell
 docker compose build
@@ -451,8 +517,8 @@ curl.exe http://127.0.0.1:8001/salute
 docker compose stop catalogo
 ```
 
-L'immagine dell'applicazione contiene solo i pacchetti `assistente`, `servizio_giorni` e
-`servizio_catalogo` e le dipendenze: niente `.env`, test o `pytest`.
+L'immagine dell'applicazione contiene solo i pacchetti `assistente`, `servizio_giorni`,
+`servizio_catalogo` e `servizio_note` e le dipendenze: niente `.env`, test o `pytest`.
 
 Per controllare che il container raggiunga LM Studio:
 
@@ -475,7 +541,8 @@ docker compose --profile test run --rm --build test
 ```
 
 I test automatici non richiedono LM Studio: il modello è sostituito da uno stub. Le prove reali
-risultano `skipped`.
+risultano `skipped`. Il server delle note è provato in-process; solo `tests/test_note_stdio.py` e
+alcuni test di `tests/test_mcp_client.py` avviano un sottoprocesso (qualche secondo).
 
 ### Prove reali con LM Studio
 
@@ -492,8 +559,8 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
 1. Test automatici su 3.13 e 3.14: `python -m pytest` e
    `docker compose --profile test run --rm --build test` (tutti passed, le prove reali skipped).
 2. Prove reali con LM Studio (comando sopra, con i servizi giorni e catalogo avviati): risposta,
-   memoria della sessione, uso dell'orologio, del convertitore, della calcolatrice, di `date_info`
-   e di `search_catalog` (7 passed).
+   memoria della sessione, uso dell'orologio, del convertitore, della calcolatrice, di `date_info`,
+   di `search_catalog` e delle note (8 passed).
 3. In Docker, `docker compose run --rm assistente`:
    - «Che ore sono a Miami?» → su stderr compaiono `← modello [chiamata] get_current_time
      {'city': 'Miami'}` e un risultato con `America/New_York`; la risposta è coerente con l'ora
@@ -519,6 +586,9 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
    - «Dove trovo il multimetro?» → `← modello [chiamata] search_catalog` con `multimetro`, poi
      `Trovato 1 articolo per «multimetro»:` e la riga di `LAB-001`; la risposta cita
      «Armadio A, ripiano 1».
+   - «Annota che il banco 3 ha la presa rotta» → `← modello [chiamata] add_note` e `Nota … salvata:`;
+     `esci`, nuovo avvio e «Quali note ho?» → `← modello [chiamata] list_notes` e la nota nel
+     risultato e nella risposta.
 
    Con `docker compose run` i servizi `giorni` e `catalogo` partono da soli; alla fine
    `docker compose stop giorni catalogo`.
@@ -552,6 +622,10 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `risultato strumento: Errore: categoria '…' inesistente. Categorie valide: …` | il modello ha passato una categoria che non c'è nell'inventario | nessuna azione: il modello riceve l'elenco delle categorie e può riprovare |
 | `Errore: risposta non valida dal servizio catalogo (HTTP …)` | il servizio ha risposto con un codice o un testo inatteso, oppure `CATALOGO_BASE_URL` indica un altro servizio | controlla `CATALOGO_BASE_URL` e i log nel terminale di uvicorn |
 | `CATALOGO_BASE_URL mancante` (codice 2) | manca la variabile in `.env` (per esempio un `.env` creato prima del catalogo) | aggiungi `CATALOGO_BASE_URL=http://127.0.0.1:8001` (vedi `.env.example`) |
+| `NOTE_DB_PATH mancante` (codice 2) | manca la variabile in `.env` (per esempio un `.env` creato prima delle note) | aggiungi `NOTE_DB_PATH=dati/note.db` (vedi `.env.example`) |
+| `Server MCP delle note non avviabile: …` (codice 1) | il server delle note non parte: per esempio dipendenze non installate (`mcp`) o file di `servizio_note/` mancanti; sopra il messaggio compare di solito l'errore del server | `python -m pip install -r requirements-dev.txt`; prova `python -c "import servizio_note.server"` dalla cartella `Es.1/L4` |
+| `risultato strumento: Errore: archivio delle note non utilizzabile (…)` | `NOTE_DB_PATH` indica una cartella, un percorso non scrivibile o un file che non è un database SQLite | correggi `NOTE_DB_PATH`; in Docker il volume `note` deve essere montato su `/app/dati` |
+| `risultato strumento: Errore: server delle note non disponibile (…)` | il server è caduto o non ha risposto entro 10 s durante una chiamata | riprova; se si ripete, controlla gli errori del server su stderr |
 | `GIORNI_BASE_URL mancante` (codice 2) | manca la variabile in `.env` | aggiungi `GIORNI_BASE_URL=http://127.0.0.1:8000` (vedi `.env.example`) |
 | a «quanti giorni mancano all'11 febbraio?» la risposta è «già passato» o un numero negativo | il modello ha aggiunto da sé l'anno corrente (`days_between` con `end` `2026-02-11` invece di `02-11`): con gemma circa 2 volte su 10 nella serie del 2026-11-08 | controlla nei log la data passata a `days_between`; con l'anno scritto nella domanda il modello lo usa (es. «Il 2 giugno 2027 è festivo?» → `2027-06-02`, 10 su 10 il 2026-11-05) |
 | `Errore: il modello non ha risposto…` durante la chat | LM Studio fermato o modello scaricato dalla memoria; con `Error code: 400`, anche un blocco di LM Studio mentre genera una chiamata (nel log del server: «Failed to generate a tool call … timed out», visto 2 volte su 56 il 2026-11-05) | ricarica il modello e ripeti la domanda: la cronologia è intatta |

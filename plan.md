@@ -3081,6 +3081,16 @@ Approvato il 2026-11-08 (esecuzione: Native, revisione finale opus).
 Spec: `L4/docs/superpowers/specs/2026-11-08-note-persistenti-design.md`.
 Fonte: `L4/docs/superpowers/plans/2026-11-08-note-persistenti.md`.
 
+**Esito (2026-11-08):** Task 1-6 eseguiti su `feat/note-persistenti` (`3d4af60` archivio,
+`858fc06` server e `mcp==2.3.0`, `72baaa3` client MCP generico, `0a00074` agente, `1421b3d` Docker,
+`9cef1c5` prova reale, docs nel commit seguente). Suite 524 passed / 7 skipped su 3.13.14 e 3.14.9;
+LM Studio 8/8. Persistenza verificata dalla venv e in Docker (volume `note`). Serie con
+`google/gemma-4-e2b` ridotta a 30 tentativi su decisione dell'utente: annota 9/9, elenca 5/5,
+cancella per descrizione 5/5, id inesistente 5/5, archivio inutilizzabile 6/6 senza falsi
+«salvata». Ruling: `NOTE_TIMEZONE` non valido blocca solo `list_notes`; parametro `label` in
+`load_mcp_tools` (previsto dal piano). `CLAUDE.md` da aggiornare dopo l'ok dell'utente. Dettagli in
+`L4/docs/registro-test.md`, sessione (13).
+
 ### Note persistenti — piano di implementazione
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
