@@ -13,7 +13,9 @@ from assistente.catalog import make_catalog_tools
 from assistente.config import ConfigError, Settings, load_settings
 from assistente.dates import make_date_tools
 from assistente.graph import build_graph
+from assistente.mcp_client import MCPStartupError
 from assistente.model import ModelCheckError, check_model, create_chat_model
+from assistente.notes import make_note_tools
 from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
 
 SYSTEM_PROMPT = (
@@ -36,7 +38,10 @@ SYSTEM_PROMPT = (
     "Per sapere se un articolo del laboratorio c'è, dove si trova, quanti pezzi ci sono o in che "
     "stato è usa search_catalog e, per la scheda completa, get_catalog_item; non inventare "
     "articoli, posizioni o quantità. Se il servizio catalogo non è raggiungibile o la sua "
-    "risposta non è valida, di' all'utente che l'inventario non è consultabile."
+    "risposta non è valida, di' all'utente che l'inventario non è consultabile. "
+    "Per salvare, elencare o eliminare note usa add_note, list_notes e delete_note; per eliminare "
+    "una nota serve il suo id: se non lo conosci chiama prima list_notes. Non dire che una nota è "
+    "stata salvata o eliminata se lo strumento non lo conferma."
 )
 logger = logging.getLogger(__name__)
 
@@ -105,13 +110,14 @@ def configure_logging(level: str) -> None:
 
 
 def make_tools(settings: Settings) -> list[BaseTool]:
-    """Strumenti offerti al modello: orologio, convertitore, calcolatrice, date e catalogo."""
+    """Strumenti offerti al modello: orologio, convertitore, calcolatrice, date, catalogo e note."""
     return [
         make_clock_tool(settings.default_timezone),
         make_converter_tool(),
         make_calculator_tool(),
         *make_date_tools(settings.giorni_base_url, settings.default_timezone),
         *make_catalog_tools(settings.catalogo_base_url),
+        *make_note_tools(settings.note_db_path, settings.default_timezone),
     ]
 
 
@@ -133,5 +139,10 @@ def main() -> int:
     except ModelCheckError as exc:
         print(exc, file=sys.stderr)
         return 1
-    run_chat(create_graph(settings))
+    try:
+        graph = create_graph(settings)
+    except MCPStartupError as exc:
+        print(f"Server MCP delle note non avviabile: {exc}", file=sys.stderr)
+        return 1
+    run_chat(graph)
     return 0

@@ -27,6 +27,8 @@ class Settings:
     giorni_base_url: str = "http://localhost:8000"
     # Come sopra: load_settings richiede CATALOGO_BASE_URL.
     catalogo_base_url: str = "http://localhost:8001"
+    # Come sopra: load_settings richiede NOTE_DB_PATH (e la rende assoluta).
+    note_db_path: str = "dati/note.db"
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
@@ -43,11 +45,13 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     model = value("LMSTUDIO_MODEL")
     giorni_base_url = value("GIORNI_BASE_URL")
     catalogo_base_url = value("CATALOGO_BASE_URL")
+    note_db_path = value("NOTE_DB_PATH")
     for name, found in (
         ("LMSTUDIO_BASE_URL", base_url),
         ("LMSTUDIO_MODEL", model),
         ("GIORNI_BASE_URL", giorni_base_url),
         ("CATALOGO_BASE_URL", catalogo_base_url),
+        ("NOTE_DB_PATH", note_db_path),
     ):
         if not found:
             problems.append(f"{name} mancante")
@@ -79,4 +83,6 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         max_tool_steps=max_tool_steps,
         giorni_base_url=giorni_base_url,
         catalogo_base_url=catalogo_base_url,
+        # Assoluta: il sottoprocesso del server delle note non dipende dalla cartella corrente.
+        note_db_path=os.path.abspath(note_db_path),
     )

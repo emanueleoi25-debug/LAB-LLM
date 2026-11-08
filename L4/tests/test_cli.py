@@ -5,9 +5,14 @@ import httpx
 import openai
 import pytest
 from langchain_core.messages import AIMessage
+from langchain_core.tools import StructuredTool
 
+import assistente.cli as cli
+import servizio_note.server
+from assistente import notes
 from assistente.cli import SYSTEM_PROMPT, configure_logging, main, make_tools, run_chat
 from assistente.config import Settings
+from assistente.mcp_client import MCPStartupError
 from assistente.graph import build_graph
 from tests.fakes import ScriptedModel
 
@@ -109,9 +114,18 @@ def test_system_prompt_mentions_city_parameter():
     assert "parametro city" in SYSTEM_PROMPT
 
 
-def test_tools_include_all_local_tools():
+def fake_note_tools(db_path, timezone):
+    return [
+        StructuredTool.from_function(func=lambda: "", name=name, description=name)
+        for name in ("add_note", "list_notes", "delete_note")
+    ]
+
+
+def test_tools_include_all_local_tools(monkeypatch):
+    monkeypatch.setattr(cli, "make_note_tools", fake_note_tools)
     settings = Settings(base_url="http://localhost:1234/v1", model="m")
     names = [t.name for t in make_tools(settings)]
+    assert len(set(names)) == len(names)
     assert names == [
         "get_current_time",
         "convert_units",
@@ -122,6 +136,9 @@ def test_tools_include_all_local_tools():
         "date_info",
         "search_catalog",
         "get_catalog_item",
+        "add_note",
+        "list_notes",
+        "delete_note",
     ]
 
 
@@ -161,10 +178,35 @@ def test_system_prompt_contains_service_failure_rule():
     ) in SYSTEM_PROMPT
 
 
-def test_system_prompt_ends_with_catalog_rule():
-    assert SYSTEM_PROMPT.endswith(
+def test_system_prompt_contains_catalog_rule():
+    assert (
         " Per sapere se un articolo del laboratorio c'è, dove si trova, quanti pezzi ci sono o in "
         "che stato è usa search_catalog e, per la scheda completa, get_catalog_item; non "
         "inventare articoli, posizioni o quantità. Se il servizio catalogo non è raggiungibile o "
         "la sua risposta non è valida, di' all'utente che l'inventario non è consultabile."
+    ) in SYSTEM_PROMPT
+
+
+def test_system_prompt_ends_with_notes_rule():
+    assert SYSTEM_PROMPT.endswith(
+        " Per salvare, elencare o eliminare note usa add_note, list_notes e delete_note; per "
+        "eliminare una nota serve il suo id: se non lo conosci chiama prima list_notes. Non dire "
+        "che una nota è stata salvata o eliminata se lo strumento non lo conferma."
     )
+
+
+def test_main_exits_when_notes_server_fails(monkeypatch, capsys):
+    settings = Settings(base_url="http://localhost:1234/v1", model="m")
+    monkeypatch.setattr(cli, "load_settings", lambda: settings)
+    monkeypatch.setattr(cli, "check_model", lambda s: None)
+
+    def broken(db_path, timezone):
+        raise MCPStartupError("boom")
+
+    monkeypatch.setattr(cli, "make_note_tools", broken)
+    assert main() == 1
+    assert "Server MCP delle note non avviabile: boom" in capsys.readouterr().err
+
+
+def test_failure_hints_match():
+    assert notes.NOTE_FAILURE_HINT == servizio_note.server.NOTE_FAILURE_HINT

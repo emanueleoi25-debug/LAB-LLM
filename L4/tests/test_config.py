@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from assistente.config import ConfigError, load_settings
@@ -7,6 +9,7 @@ BASE = {
     "LMSTUDIO_MODEL": "google/gemma-4-e2b",
     "GIORNI_BASE_URL": "http://localhost:8000",
     "CATALOGO_BASE_URL": "http://localhost:8001",
+    "NOTE_DB_PATH": "dati/note.db",
 }
 
 
@@ -50,6 +53,18 @@ def test_catalogo_base_url_is_read():
     assert s.catalogo_base_url == "http://localhost:8001"
 
 
+def test_missing_note_db_path():
+    env = {k: v for k, v in BASE.items() if k != "NOTE_DB_PATH"}
+    with pytest.raises(ConfigError) as err:
+        load_settings(env)
+    assert "NOTE_DB_PATH mancante" in str(err.value)
+
+
+def test_note_db_path_is_absolute():
+    s = load_settings({**BASE, "NOTE_DB_PATH": " dati/note.db "})
+    assert s.note_db_path == os.path.abspath("dati/note.db")
+
+
 def test_log_level_is_normalized_and_validated():
     assert load_settings({**BASE, "LOG_LEVEL": "debug"}).log_level == "DEBUG"
     with pytest.raises(ConfigError, match="LOG_LEVEL"):
@@ -59,7 +74,8 @@ def test_log_level_is_normalized_and_validated():
 def test_environment_wins_over_dotenv(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text(
         "LMSTUDIO_BASE_URL=http://file/v1\nLMSTUDIO_MODEL=dal-file\n"
-        "GIORNI_BASE_URL=http://localhost:8000\nCATALOGO_BASE_URL=http://localhost:8001\n",
+        "GIORNI_BASE_URL=http://localhost:8000\nCATALOGO_BASE_URL=http://localhost:8001\n"
+        "NOTE_DB_PATH=dati/note.db\n",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
