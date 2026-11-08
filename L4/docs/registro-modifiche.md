@@ -5,6 +5,89 @@ non era giusto, perché, come è stato risolto, quali alternative sono state sca
 e come è stato verificato. Gli esiti completi delle verifiche sono in
 [`registro-test.md`](registro-test.md).
 
+## 2026-11-08 — Con il servizio giorni spento il modello rispondeva a mente
+
+**Che cosa non era giusto.** Con il servizio giorni spento, alla domanda «Quanti giorni mancano a
+Natale?» lo strumento restituiva `Errore: servizio giorni non raggiungibile a …`, ma il modello
+rispondeva comunque con un numero di giorni: 8 risposte su 8 («47 giorni»). Il numero non veniva
+dallo strumento e l'utente non aveva modo di accorgersene dalla risposta.
+
+**Causa.** Il testo d'errore diceva solo che il servizio non rispondeva, e un modello piccolo
+(`google/gemma-4-e2b`) lo trattava come un'informazione da aggirare: calcolava la data a mente
+oppure con `calculate`.
+
+**Soluzione (spec §10.1 e §10.1.1).**
+- I testi dei guasti del servizio («non raggiungibile», «risposta non valida», con o senza codice
+  HTTP) finiscono con `Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a
+  mente.` (costante `SERVICE_FAILURE_HINT` in `assistente/dates.py`). Gli errori di validazione
+  (risposta 400) non cambiano.
+- In coda al prompt di sistema: «Se uno strumento risponde che il servizio giorni non è
+  raggiungibile o che la sua risposta non è valida, di' all'utente che il calcolo non è disponibile
+  e non dare risultati calcolati a mente o con altri strumenti.»
+
+**Ragionamento.**
+- Prima si è provato solo il testo d'errore, per non allungare il prompt: 0 su 5. La coda arrivava
+  al modello (era nel messaggio dello strumento), ma veniva ignorata.
+- La regola nel prompt, provata come spike senza toccare il codice, ha dato 7 su 10. Il criterio
+  era 8 su 10: l'utente ha scelto di adottarla e accettare il risultato misurato.
+- «o con altri strumenti» copre il caso in cui il modello aveva ripiegato su `calculate`.
+- Scartata per ora: una risposta fissa decisa dal grafo quando uno strumento delle date restituisce
+  un guasto (garantita, ma aggiunge un instradamento al grafo).
+
+**Commit.** `664608e` — `fix(strumenti): i guasti del servizio giorni chiedono di non rispondere a
+mente`.
+
+**Verifica.** Testi attesi aggiornati in `test_unreachable`, `test_unexpected_response`,
+`test_http_error_becomes_invalid_response` e test nuovo
+`test_system_prompt_ends_with_service_failure_rule`, prima falliti e poi superati; suite 384
+passed su 3.13 e 3.14; serie a servizio spento 7 su 10 senza numero; esecuzione reale con la chat
+che continua.
+
+## 2026-11-08 — Due secondi di attesa in più verso LM Studio (localhost)
+
+**Che cosa non era giusto.** Con `LMSTUDIO_BASE_URL=http://localhost:1234/v1` ogni nuova
+connessione a LM Studio costava circa 2 secondi in più: 2,04 s contro 0,01 s con `127.0.0.1`.
+
+**Causa.** Come per il servizio giorni (2026-11-06), su Windows `localhost` si risolve prima in
+`::1`, ma LM Studio ascolta solo su `127.0.0.1`: il tentativo rifiutato su `::1` costa circa 2
+secondi prima di passare a IPv4.
+
+**Soluzione (spec §10.2).** `LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1` in `.env.example`, nel
+README (con la spiegazione) e nel `.env` locale. Codice e Docker (`host.docker.internal`) non
+cambiano.
+
+**Ragionamento.** Il client OpenAI riusa la connessione, quindi il ritardo pesa soprattutto
+all'avvio (controllo del modello e prima domanda) e dopo le pause; cambiare l'indirizzo d'esempio
+costa nulla. Scartato: far ascoltare LM Studio anche su IPv6 (impostazione dell'utente, non del
+progetto).
+
+**Commit.** `b677693` — `fix(config): indirizzo 127.0.0.1 per LM Studio`.
+
+**Verifica.** Tempi misurati con httpx (3 richieste per indirizzo); prove reali con LM Studio 6
+passed con il nuovo indirizzo; `Invoke-RestMethod http://127.0.0.1:1234/v1/models` elenca il
+modello.
+
+## 2026-11-08 — I log del container erano in UTC
+
+**Che cosa non era giusto.** In Docker i timestamp dei log erano in UTC (un'ora indietro rispetto
+a Roma), mentre nella venv locale sono nell'ora di Roma: confrontare i log era scomodo.
+
+**Causa.** Il container non aveva `TZ`, quindi `logging` usava l'ora UTC del sistema.
+
+**Soluzione (spec §10.2).** `TZ: Europe/Rome` nell'`environment` del servizio `assistente` in
+`compose.yaml`. L'immagine `python:3.14.9-slim` contiene già i dati dei fusi
+(`/usr/share/zoneinfo/Europe/Rome`).
+
+**Ragionamento.** Valore fisso e non letto da `DEFAULT_TIMEZONE`: l'orologio usa già
+`DEFAULT_TIMEZONE` e non dipende da `TZ`, che qui serve solo all'ora dei log. I servizi `giorni` e
+`test` non cambiano.
+
+**Commit.** `20797c6` — `build: fuso Europe/Rome per i log del container`.
+
+**Verifica.** Suite 384 passed nel container `test`; «Che ore sono?» in Docker: timestamp dei log
+17:03:04 tra le ore dell'host 17:02:54 e 17:03:11, risultato dello strumento ancora con `fuso
+predefinito Europe/Rome`.
+
 ## 2026-11-03 — La calcolatrice trasformava il rumore dei float in un errore
 
 **Che cosa non era giusto.** La revisione finale della calcolatrice ha trovato espressioni

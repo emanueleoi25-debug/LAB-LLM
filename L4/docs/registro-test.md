@@ -3,6 +3,92 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-08 (10) — commit `20797c6`
+
+Aggiunte prima del merge in `dev` (spec §10, Task 9-11): testo d'errore dei guasti del servizio
+giorni e regola in coda al prompt (`664608e`), `127.0.0.1` per LM Studio (`b677693`) e
+`TZ: Europe/Rome` per i log del container (`20797c6`). La frase sull'anno nella descrizione di
+`days_between` (Task 10) è stata provata e annullata. Modello `google/gemma-4-e2b` in LM Studio
+sull'host; «oggi» è il 2026-11-08 (Europe/Rome). Serie: solo gemma, script usa e getta nella
+scratchpad (`create_graph` + `ask`, una sessione nuova per tentativo); alcune serie sono state
+fermate dall'utente quando l'esito era già chiaro.
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 384 passed, 6 skipped |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 384 passed, 6 skipped |
+| Prove reali con LM Studio, servizio avviato | venv locale, `LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1` | `$env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v` | 6 passed (103 s) |
+| Tempo della prima richiesta a LM Studio | venv locale, script usa e getta con httpx | 3 richieste per indirizzo | vedi sotto |
+| Spike su date ambigue (spec §10.3) | venv locale, servizio avviato | 36 tentativi | 0 scambi giorno/mese; anno aggiunto 2 su 10 |
+| Servizio spento (spec §10.1, §10.1.1) | venv locale, nessun processo sulla porta 8000 | 3 varianti | vedi sotto |
+| Esecuzione reale a servizio spento | venv locale, `python -m assistente` con le domande in ingresso | 2 domande | errore con la coda, risposta senza numero, chat continua |
+| Descrizione di `days_between` (spec §10.3) | venv locale, servizio avviato | 9 tentativi | 1 su 9 giusto: annullata |
+| Fuso dei log in Docker (spec §10.2) | container `assistente` + `giorni` | `"Che ore sono?", "esci" \| docker compose run --rm -T --build assistente` | timestamp nell'ora di Roma |
+
+Il test in più è `test_system_prompt_ends_with_service_failure_rule`; `test_unreachable`,
+`test_unexpected_response` e `test_http_error_becomes_invalid_response` hanno i testi attesi con
+la coda nuova (visti fallire, 13 casi, prima del codice).
+
+Tempo della prima richiesta `GET /v1/models` con un client httpx nuovo per ogni richiesta (LM
+Studio ascolta solo su `127.0.0.1:1234`, verificato con `netstat`):
+
+| Indirizzo | Richieste |
+|---|---|
+| `http://localhost:1234/v1` | 2,04 s, 2,05 s, 2,04 s |
+| `http://127.0.0.1:1234/v1` | 0,01 s, 0,00 s, 0,01 s |
+
+Spike sulle date ambigue (servizio avviato, fermato dall'utente a 36 tentativi su 40):
+
+| Domanda | Esito |
+|---|---|
+| «Che giorno della settimana è il 3 aprile?» | 10 su 10 `date_info` `04-03` |
+| «Il 5/3/2027 è un giorno lavorativo?» | 9 su 10 `2027-03-05`; 1 `05-03-2027` → `Errore: data non valida …`, il modello chiede il formato |
+| «Quanti giorni mancano all'11 febbraio?» | giorno e mese giusti 10 su 10; 8 su 10 `2027-02-11` o `02-11` (95 giorni), 2 su 10 `2026-02-11` (-270 giorni, «l'11 febbraio è già passato») |
+| «Che data sarà 10 giorni dopo il 4 luglio?» | 6 su 6 `add_days` `start` `07-04` (14 luglio) |
+
+Servizio spento, «Quanti giorni mancano a Natale?» (in tutti i tentativi `get_current_time`, poi
+`days_between {'end': '2026-12-25', 'start': '2026-11-08'}` con il risultato d'errore):
+
+| Variante | Senza numero di giorni | Risposte con un numero |
+|---|---|---|
+| codice prima della §10.1 | 0 su 8 | sempre «47 giorni» |
+| solo testo d'errore con la coda | 0 su 5 | 4× «47 giorni», 1× `calculate` e poi «17 giorni» |
+| testo d'errore + regola in coda al prompt (spike, prompt cambiato solo nello script; testo identico a quello poi adottato) | **7 su 10** | «37 giorni», 2× «47 giorni» |
+
+Le risposte corrette dicono, con parole simili, «Mi dispiace, non sono riuscito a calcolare il
+numero di giorni rimanenti perché il servizio non è disponibile al momento». Il criterio di 8 su 10
+è stato mancato di uno: l'utente ha scelto di adottare la regola e di accettare 7 su 10 (spec
+§10.1.1).
+
+Esecuzione reale dopo il commit `664608e` (servizio spento): `days_between` → `risultato
+strumento: Errore: servizio giorni non raggiungibile a http://127.0.0.1:8000. Non è possibile
+calcolare il risultato: dillo all'utente e non calcolarlo a mente.` → «Mi dispiace, non sono
+riuscito a calcolare esattamente quanti giorni mancano a Natale utilizzando gli strumenti
+disponibili al momento.»; poi «Quanto fa 2 + 2?» → `calculate {'expression': '2 + 2'}`, `2 + 2 =
+4`. Esempio riportato nel README.
+
+Descrizione di `days_between` con «senza aggiungere tu l'anno» (servizio avviato, fermata
+dall'utente a 9 tentativi): «Quanti giorni mancano all'11 febbraio?» → 7 su 9 `end` `2026-02-11`
+(-270 giorni), 1 su 9 `2027-02-11` (95 giorni), 1 su 9 `start` `11-02` al posto di oggi (101
+giorni). Peggio dello spike con la descrizione vecchia (8 su 10): modifica annullata con `git
+restore`, nessun commit; controlli non eseguiti.
+
+Fuso dei log in Docker: ora dell'host prima del comando 17:02:54 e dopo 17:03:11; nel container
+`2026-11-08 17:03:04,370 INFO assistente.graph: ← modello [chiamata] get_current_time {}` (ora di
+Roma; senza `TZ` sarebbe stata 16:03, UTC), risultato `2026-11-08T17:03:04+01:00 (fuso
+predefinito Europe/Rome)`. Poi `docker compose stop giorni`, porta 8000 libera.
+
+### Resta da provare o da decidere
+
+- Con il servizio spento circa 3 risposte su 10 contengono ancora un numero di giorni non
+  calcolato. L'unica soluzione garantita è una risposta fissa decisa dal grafo (non scelta).
+- Anno aggiunto dal modello a una data senza anno (circa 2 su 10 nello spike): la frase provata
+  peggiora; un'altra formulazione richiederebbe un nuovo spike.
+- Checklist in Docker (anche con il terminale interattivo vero, senza `-T`) da rifare nella
+  verifica completa prima del push.
+- Minori della revisione finale di giorni e scadenze, non scelti: data vuota come omessa,
+  2038-04-25 solo «Pasqua», test di contratto client↔app, ritocchi al README.
+
 ## Sessione del 2026-11-06 (9) — commit `518f67a`
 
 Correzioni dopo la revisione finale di giorni e scadenze (spec §9): nessuna eccezione HTTP dagli

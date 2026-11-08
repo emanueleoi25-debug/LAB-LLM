@@ -2599,3 +2599,20 @@ non vanno mai avviati insieme; a fine prova la porta 8000 resta libera.
   vero); esito in `Es.1/plan.md`. Commit `docs: esito delle aggiunte prima del merge`.
 - [ ] **Step 7:** chiedere all'utente l'ok per il merge in `dev`. Push solo su richiesta, dopo la
   verifica completa rieseguita (suite 3.13 e 3.14, LM Studio, checklist Docker).
+
+**Esito delle aggiunte (2026-11-08, esecuzione Native inline):**
+- Task 9 (`664608e`): coda `Non è possibile calcolare il risultato: dillo all'utente e non
+  calcolarlo a mente.` sui testi dei guasti del servizio e regola in coda al prompt (spec §10.1.1).
+  Servizio spento: prima 0 su 8 senza numero, solo testo d'errore 0 su 5, testo + regola 7 su 10
+  (criterio 8 su 10 mancato di uno, risultato accettato dall'utente). Esecuzione reale: risposta
+  senza numero e chat che continua.
+- Task 10: descrizione di `days_between` con «senza aggiungere tu l'anno» → 1 su 9 giusto (spike
+  con la descrizione vecchia 8 su 10): annullata, nessun commit di codice (`69393e4`, spec §10.3.1).
+  Spike sulle date ambigue: 0 scambi giorno/mese su 36.
+- Task 11: `127.0.0.1` per LM Studio (`b677693`; prima connessione 2,04 s con `localhost`, 0,01 s
+  con `127.0.0.1`) e `TZ: Europe/Rome` per i log del container (`20797c6`; timestamp verificato).
+- Suite 384 passed / 6 skipped su 3.13.14 e 3.14.9; LM Studio 6/6 con il servizio acceso.
+  Restano: checklist in Docker (anche interattiva) nella verifica completa prima del push; circa 3
+  su 10 risposte con un numero a servizio spento; anno aggiunto dal modello circa 2 su 10. Dettagli
+  in `L4/docs/registro-test.md`, sessione (10), e in `L4/docs/registro-modifiche.md`. Non ancora
+  riunito in `dev`, nessun push.
