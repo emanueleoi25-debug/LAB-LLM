@@ -33,7 +33,7 @@ Le variabili d'ambiente hanno la precedenza su `.env`, che resta fuori da Git.
 
 | Variabile | Obbligatoria | Default | Significato |
 |---|---|---|---|
-| `LMSTUDIO_BASE_URL` | sì | — | indirizzo dell'API di LM Studio, es. `http://localhost:1234/v1` |
+| `LMSTUDIO_BASE_URL` | sì | — | indirizzo dell'API di LM Studio, es. `http://127.0.0.1:1234/v1`: LM Studio ascolta solo su `127.0.0.1` e con `localhost` Windows prova prima `::1`, così ogni nuova connessione costa circa 2 s in più (in Docker lo imposta `compose.yaml`) |
 | `LMSTUDIO_MODEL` | sì | — | identificativo del modello come restituito da `GET /v1/models` |
 | `GIORNI_BASE_URL` | sì | — | indirizzo del servizio giorni, es. `http://127.0.0.1:8000`: con `localhost` Windows prova prima `::1`, dove uvicorn non ascolta, e ogni chiamata costa circa 2 s in più (in Docker lo imposta `compose.yaml`) |
 | `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non indica una città (nome IANA) |
@@ -44,7 +44,7 @@ In LM Studio: carica il modello (es. `google/gemma-4-e2b`) e avvia il server loc
 Per vedere gli identificativi disponibili:
 
 ```powershell
-Invoke-RestMethod http://localhost:1234/v1/models | Select-Object -ExpandProperty data | Select-Object id
+Invoke-RestMethod http://127.0.0.1:1234/v1/models | Select-Object -ExpandProperty data | Select-Object id
 ```
 
 ## Avvio
