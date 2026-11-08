@@ -5,7 +5,18 @@ from collections import Counter
 
 import pytest
 
-from servizio_catalogo.inventario import InventoryError, Item, categories, load_items
+from servizio_catalogo.inventario import (
+    CatalogError,
+    InventoryError,
+    Item,
+    categories,
+    find,
+    load_items,
+    normalize,
+    query_stems,
+    search,
+    stem,
+)
 
 ITEMS = load_items()
 
@@ -118,3 +129,103 @@ def test_error_names_the_item(tmp_path):
         load_items(write(tmp_path, [article(), article(codice="LAB-002", quantita=-1)]))
     with pytest.raises(InventoryError, match="n. 1"):
         load_items(write(tmp_path, [article(codice=7)]))
+
+
+# --- normalizzazione, radici, parole della query -----------------------------------------------
+
+
+def test_normalize():
+    assert normalize("Città, PILE-AA!") == ["citta", "pile", "aa"]
+    assert normalize("e\u0300") == ["e"]  # «è» in forma NFD
+    assert normalize("ESP32 0,8 mm") == ["esp32", "0", "8", "mm"]
+
+
+@pytest.mark.parametrize(
+    ("word", "expected"),
+    [
+        ("resistenze", "resistenz"),
+        ("resistenza", "resistenz"),
+        ("oscilloscopio", "oscilloscop"),
+        ("oscilloscopi", "oscilloscop"),
+        ("cavo", "cav"),
+        ("cavi", "cav"),
+        ("led", "led"),
+        ("aria", "ari"),
+        ("tester", "tester"),
+    ],
+)
+def test_stem(word, expected):
+    assert stem(word) == expected
+
+
+def test_query_stems():
+    assert query_stems("Dove trovo i saldatori?") == {"trov", "saldator"}
+    assert query_stems("Arduino Uno") == {"arduin"}
+
+
+@pytest.mark.parametrize("query", ["dove?", "3D", "   ", "per il"])
+def test_query_without_useful_words(query):
+    with pytest.raises(CatalogError, match="parole utili"):
+        query_stems(query)
+
+
+# --- ricerca ------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("query", "category", "codes"),
+    [
+        ("multimetro", None, ["LAB-001"]),
+        ("oscilloscopio", None, ["LAB-002", "LAB-024"]),
+        ("cavo usb", None, ["LAB-022", "LAB-008", "LAB-021", "LAB-023", "LAB-024"]),
+        ("resistenze", None, ["LAB-017"]),
+        ("batterie", None, ["LAB-006", "LAB-008"]),
+        ("PILE", None, ["LAB-006"]),
+        ("tester", None, ["LAB-001"]),
+        ("stampante 3d", None, []),
+        ("pinza", None, ["LAB-003", "LAB-026"]),
+        ("pinza", "misura", ["LAB-003"]),
+        ("cavo", " CAVI E CONNETTORI ", ["LAB-021", "LAB-022", "LAB-023", "LAB-024"]),
+    ],
+)
+def test_search_examples(query, category, codes):
+    result = search(ITEMS, query, category)
+    assert [item.codice for item in result.items] == codes
+    assert result.total == len(codes)
+
+
+def test_search_category_name_as_in_file():
+    assert search(ITEMS, "pinza", "misura").category == "Misura"
+    assert search(ITEMS, "pinza").category is None
+
+
+def _item(code, name):
+    return Item(code, name, "Prova", (), "Descrizione.", "Banco 1", 1, "disponibile", "")
+
+
+def test_search_limit():
+    items = [_item(f"LAB-{n:03d}", f"Cavo {n}") for n in range(1, 13)]
+    items.append(_item("LAB-013", "Cavo usb"))
+    result = search(items, "cavo usb")
+    assert result.total == 13
+    assert [item.codice for item in result.items] == ["LAB-013"] + [
+        f"LAB-{n:03d}" for n in range(1, 10)
+    ]
+
+
+def test_search_unknown_category():
+    with pytest.raises(CatalogError) as err:
+        search(ITEMS, "cavo", "stampanti")
+    assert str(err.value) == (
+        "categoria 'stampanti' inesistente. Categorie valide: Misura, Alimentazione, "
+        "Saldatura, Microcontrollori, Componenti, Cavi e connettori, Utensili, Sicurezza."
+    )
+
+
+# --- dettaglio ----------------------------------------------------------------------------------
+
+
+def test_find():
+    assert find(ITEMS, " lab-002 ").codice == "LAB-002"
+    for code in ("LAB-12", "12", "LAB 002", ""):
+        assert find(ITEMS, code) is None
