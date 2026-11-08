@@ -348,3 +348,35 @@ inesistenti (404, con il codice ripulito nel messaggio).
 - Piano approvato copiato in `Es.1/plan.md` (commit `docs:`).
 - Commit in Conventional Commits in italiano (`feat(catalogo): …`, `test(catalogo): …`,
   `build: …`, `docs: …`); merge in `dev` con l'ok dell'utente, push solo su richiesta.
+
+## 9. Correzione proposta dopo la revisione finale (2026-11-08, da approvare)
+
+La revisione finale del branch (subagent opus, `3800b10..ac907fb`) ha trovato 0 problemi critici,
+1 importante e 3 minori. L'importante riguarda il §2.4.
+
+### 9.1 Un 404 estraneo non è «codice inesistente»
+
+Oggi `get_catalog_item` tratta come errore dell'utente **qualsiasi** 404 con `detail` testuale. Se
+`CATALOGO_BASE_URL` punta a un altro servizio FastAPI (l'errore più probabile: la porta 8000 del
+servizio giorni), `/articolo` risponde `{"detail": "Not Found"}` e lo strumento restituisce
+`Errore: Not Found Usa search_catalog per trovare il codice.`: il modello può dire all'utente che
+l'articolo non esiste, cioè un'affermazione falsa sull'inventario. `search_catalog` sullo stesso
+server dà invece, correttamente, «risposta non valida (HTTP 404)».
+
+Correzione: il 404 è un errore dell'utente solo se `detail` è una stringa che inizia con
+`nessun articolo con codice ` (il testo del §3.5); ogni altro 404 è una risposta non valida:
+`Errore: risposta non valida dal servizio catalogo (HTTP 404). {CATALOG_FAILURE_HINT}`. La riga di
+Diagnosi del README su «risposta non valida» vale allora per entrambi gli strumenti.
+
+### 9.2 Minori
+
+- Registro: le suite della sessione (11) erano attribuite a `60155c1` ma eseguite su `3dbcaf3`;
+  corretto, con le suite rieseguite su `ac907fb` (481 passed, 7 skipped su 3.13 e 3.14).
+- Suite 3.14 non rieseguita dopo il Task 5: rieseguita su `ac907fb`, verde.
+- Le radici degli articoli si ricalcolano a ogni ricerca (`_item_stems`): con 32 articoli è
+  irrilevante; lasciato.
+
+### 9.3 Criteri
+
+Il nuovo caso di test fallisce prima della correzione e passa dopo; suite verde su 3.13 e 3.14;
+nessun altro testo cambia.

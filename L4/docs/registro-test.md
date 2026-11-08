@@ -3,18 +3,20 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
-## Sessione del 2026-11-08 (11) — commit `60155c1`
+## Sessione del 2026-11-08 (11) — commit `60155c1`, suite rieseguite su `ac907fb`
 
 Catalogo locale (spec `2026-11-08-catalogo-locale-design.md`, piano Task 1-6, branch
-`feat/catalogo-locale`). Modello `google/gemma-4-e2b` in LM Studio sull'host. Il `.env` locale non
+`feat/catalogo-locale`). Servizi, prove reali, serie e checklist sono stati eseguiti su `3dbcaf3`
+(codice completo) e `60155c1` (in più la prova reale del catalogo). Modello `google/gemma-4-e2b` in LM Studio sull'host. Il `.env` locale non
 ha ancora `CATALOGO_BASE_URL`: nelle prove dalla venv la variabile è stata passata nell'ambiente del
 comando (`CATALOGO_BASE_URL=http://127.0.0.1:8001`). Serie con uno script usa e getta nella
 scratchpad (`create_graph` + `ask`, una sessione nuova per tentativo).
 
 | Verifica | Ambiente | Comando | Esito |
 |---|---|---|---|
-| Suite senza modello | venv locale, Python 3.13.14 | `python -m pytest` | 481 passed, 6 skipped |
-| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 481 passed, 6 skipped |
+| Suite senza modello, su `3dbcaf3` | venv locale, Python 3.13.14 | `python -m pytest` | 481 passed, 6 skipped |
+| Suite senza modello, su `3dbcaf3` | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 481 passed, 6 skipped |
+| Suite senza modello, su `ac907fb` (dopo la revisione finale) | venv locale, Python 3.13.14, e container `test`, Python 3.14.9 | gli stessi due comandi | 481 passed, 7 skipped su entrambe (la settima prova saltata è `test_real_model_uses_catalog`) |
 | Servizio catalogo locale | venv locale | `python -m uvicorn servizio_catalogo.app:app --port 8001`, poi `curl` su `/cerca?q=multimetro` e `/articolo?codice=LAB-99` | JSON con LAB-001; 404 `nessun articolo con codice 'LAB-99'.` |
 | Servizio catalogo in Compose | container `catalogo`, Python 3.14.9 | `docker compose up -d --build catalogo`, `curl.exe http://127.0.0.1:8001/salute` (Git Bash e PowerShell) | `{"stato":"ok","articoli":32}`; poi `docker compose stop catalogo` |
 | Porta 8001 occupata | venv locale, servizio già avviato | secondo `python -m uvicorn servizio_catalogo.app:app --port 8001` | `[Errno 10048] error while attempting to bind on address ('127.0.0.1', 8001)`, uscita 3 |
