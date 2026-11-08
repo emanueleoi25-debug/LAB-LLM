@@ -23,6 +23,7 @@ fermate dall'utente quando l'esito era già chiaro.
 | Servizio spento (spec §10.1, §10.1.1) | venv locale, nessun processo sulla porta 8000 | 3 varianti | vedi sotto |
 | Esecuzione reale a servizio spento | venv locale, `python -m assistente` con le domande in ingresso | 2 domande | errore con la coda, risposta senza numero, chat continua |
 | Descrizione di `days_between` (spec §10.3) | venv locale, servizio avviato | 9 tentativi | 1 su 9 giusto: annullata |
+| Checklist in Docker | container `assistente` + `giorni` + LM Studio sull'host | domande in ingresso a `docker compose run --rm -T --build assistente`, poi una seconda sessione | 10 domande, 8 come atteso e 2 senza la chiamata attesa (vedi sotto) |
 | Fuso dei log in Docker (spec §10.2) | container `assistente` + `giorni` | `"Che ore sono?", "esci" \| docker compose run --rm -T --build assistente` | timestamp nell'ora di Roma |
 
 Il test in più è `test_system_prompt_ends_with_service_failure_rule`; `test_unreachable`,
@@ -78,14 +79,35 @@ Fuso dei log in Docker: ora dell'host prima del comando 17:02:54 e dopo 17:03:11
 Roma; senza `TZ` sarebbe stata 16:03, UTC), risultato `2026-11-08T17:03:04+01:00 (fuso
 predefinito Europe/Rome)`. Poi `docker compose stop giorni`, porta 8000 libera.
 
+Checklist in Docker (`docker compose run --rm -T --build assistente`, servizio `giorni` avviato
+da Compose, nessun servizio locale sulla porta 8000): «Che ore sono a Miami?» → `get_current_time
+{'city': 'Miami'}`, `America/New_York`; «Quale città ti ho chiesto prima?» → «Mi hai chiesto l'ora
+a Miami.»; «Che ore sono?» → `get_current_time {}`, `fuso predefinito Europe/Rome`; «Quanti
+chilometri sono 10 miglia?» → `convert_units`, `10 mi = 16.09 km (lunghezza)`; «Quanto fa 1234 *
+5678?» → `calculate`, `1234 * 5678 = 7006652`; **«Quanto fa 7 diviso 0?» → nessuna chiamata**
+(«Non posso calcolare la divisione per zero.»); **«Quanti kg sono 5 km?» → nessuna chiamata**
+(unità di categorie diverse, risposta corretta a mente); «Quanti giorni mancano a Natale?» →
+`days_between {'end': '2026-12-25', …}`, `47 giorni di calendario`; «Il 2 giugno 2027 è festivo?» →
+`date_info {'date': '2027-06-02'}`, `Festa della Repubblica`; nuova sessione, «Quale città ti ho
+chiesto prima?» → «Non mi risulta di aver chiesto una città prima.» Poi `docker compose stop
+giorni`. Stesso esito della checklist della sessione (8): le due domande senza chiamata sono in una
+sessione lunga (da sessioni nuove 9/10 e 10/10, sessione 8).
+
 ### Resta da provare o da decidere
 
 - Con il servizio spento circa 3 risposte su 10 contengono ancora un numero di giorni non
   calcolato. L'unica soluzione garantita è una risposta fissa decisa dal grafo (non scelta).
 - Anno aggiunto dal modello a una data senza anno (circa 2 su 10 nello spike): la frase provata
   peggiora; un'altra formulazione richiederebbe un nuovo spike.
-- Checklist in Docker (anche con il terminale interattivo vero, senza `-T`) da rifare nella
-  verifica completa prima del push.
+- Checklist in Docker con il terminale interattivo vero (senza `-T`): non ancora eseguita.
+- Revisione finale delle aggiunte (subagent opus, `babe4d8..c57a2c7`): «mergeable con
+  correzioni», 0 critici, 1 importante (stato della spec §10.1.1 non aggiornato, corretto), 4
+  minori lasciati aperti come non critici per scelta dell'utente: in questo registro l'esecuzione
+  reale a servizio spento è detta «dopo il commit `664608e`» ma è avvenuta sull'albero di lavoro
+  pochi secondi prima del commit, con lo stesso contenuto; la spec §10.4 elenca ancora il commit
+  `fix(strumenti):` del §10.3 (non fatto, §10.3.1); la spec §10.2 riporta i tempi di curl (0,21 s)
+  accanto a quelli httpx del registro (2,04 s); nel registro delle modifiche «un'ora indietro»
+  rispetto all'UTC vale solo senza ora legale.
 - Minori della revisione finale di giorni e scadenze, non scelti: data vuota come omessa,
   2038-04-25 solo «Pasqua», test di contratto client↔app, ritocchi al README.
 

@@ -367,7 +367,7 @@ strumento**, senza allungare il prompt di sistema né le descrizioni.
 
 #### 10.1.1 Esito della verifica e regola nel prompt (aggiunta del 2026-11-08)
 
-Stato: proposta del 2026-11-08, **in attesa di approvazione**.
+Stato: proposta del 2026-11-08, **approvata** dall'utente il 2026-11-08 (prima del codice, commit `664608e`).
 
 Serie con il servizio spento («Quanti giorni mancano a Natale?», gemma, una sessione nuova per
 tentativo; serie interrotte dall'utente quando l'esito era chiaro):

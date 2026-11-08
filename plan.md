@@ -2612,7 +2612,10 @@ non vanno mai avviati insieme; a fine prova la porta 8000 resta libera.
 - Task 11: `127.0.0.1` per LM Studio (`b677693`; prima connessione 2,04 s con `localhost`, 0,01 s
   con `127.0.0.1`) e `TZ: Europe/Rome` per i log del container (`20797c6`; timestamp verificato).
 - Suite 384 passed / 6 skipped su 3.13.14 e 3.14.9; LM Studio 6/6 con il servizio acceso.
-  Restano: checklist in Docker (anche interattiva) nella verifica completa prima del push; circa 3
+  Checklist in Docker: 8 su 10 come atteso («7 diviso 0» e «5 km in kg» senza chiamata in sessione
+  lunga, come il 2026-11-05). Revisione finale (opus): «mergeable con correzioni», 1 importante
+  corretto (stato della spec §10.1.1), 4 minori di documentazione lasciati aperti per scelta
+  dell'utente. Restano: checklist con il terminale interattivo vero; circa 3
   su 10 risposte con un numero a servizio spento; anno aggiunto dal modello circa 2 su 10. Dettagli
-  in `L4/docs/registro-test.md`, sessione (10), e in `L4/docs/registro-modifiche.md`. Non ancora
-  riunito in `dev`, nessun push.
+  in `L4/docs/registro-test.md`, sessione (10), e in `L4/docs/registro-modifiche.md`. Riunito in
+  `dev` (fast-forward) e pushato su richiesta dell'utente il 2026-11-08.
