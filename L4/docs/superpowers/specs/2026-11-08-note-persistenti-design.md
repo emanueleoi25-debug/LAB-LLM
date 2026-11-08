@@ -1,6 +1,6 @@
 # Note persistenti
 
-Data: 2026-11-08, da approvare. Branch: `feat/note-persistenti` (da `dev` = `b70a8a7`). Quinto
+Data: 2026-11-08, approvata dall'utente il 2026-11-08. Branch: `feat/note-persistenti` (da `dev` = `b70a8a7`). Quinto
 strumento della roadmap in `CLAUDE.md`, primo server MCP. Il client MCP dell'agente è generico: il
 sesto strumento (meteo, anch'esso un server MCP) lo riuserà senza modificarlo.
 
@@ -52,7 +52,7 @@ verificato), migrazioni dello schema.
 ## 2. Gli strumenti visti dal modello
 
 Nomi e parametri in inglese, testi in italiano, come gli strumenti esistenti. Tre strumenti; con
-quelli attuali diventano 14.
+quelli attuali (9) diventano 12.
 
 | Strumento | Parametri |
 |---|---|
@@ -146,7 +146,7 @@ inventarle.`
 | `assistente/mcp_client.py` | `MCPStartupError`, `load_mcp_tools(server, failure_hint, timeout=10.0) -> list[BaseTool]`. Nulla di specifico delle note. |
 | `assistente/notes.py` | `NOTE_FAILURE_HINT` (copia identica di quella del server), `make_note_tools(db_path, timezone, timeout=10.0)`. |
 | `assistente/config.py` | `NOTE_DB_PATH` obbligatoria, resa assoluta rispetto alla cartella corrente; campo `Settings.note_db_path` (predefinito `dati/note.db`, solo per i test che costruiscono `Settings` a mano). |
-| `assistente/cli.py` | frase del §2.2; `make_tools` con gli strumenti delle note (14 in tutto); `main()` gestisce `MCPStartupError`. |
+| `assistente/cli.py` | frase del §2.2; `make_tools` con gli strumenti delle note (12 in tutto); `main()` gestisce `MCPStartupError`. |
 
 ### 4.1 `load_mcp_tools`
 
@@ -227,7 +227,7 @@ qualsiasi cartella corrente). Poi `load_mcp_tools(params, NOTE_FAILURE_HINT, tim
   temporaneo: aggiungi (testo con accenti e virgolette basse) → elenca → elimina via stdio. Nessun
   modello né rete: gira nella suite normale su 3.13 e 3.14.
 - `tests/test_config.py`: `NOTE_DB_PATH` mancante → errore; valore relativo reso assoluto.
-- `tests/test_cli.py`: `make_tools` con un `make_note_tools` finto restituisce 14 strumenti con
+- `tests/test_cli.py`: `make_tools` con un `make_note_tools` finto restituisce 12 strumenti con
   nomi distinti; `SYSTEM_PROMPT` contiene la frase del §2.2; `main()` con `MCPStartupError` →
   codice 1 e messaggio; le due copie di `NOTE_FAILURE_HINT` coincidono.
 
