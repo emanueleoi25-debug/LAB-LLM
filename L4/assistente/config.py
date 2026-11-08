@@ -25,6 +25,8 @@ class Settings:
     # Il valore predefinito serve solo ai test che costruiscono Settings a mano:
     # load_settings richiede GIORNI_BASE_URL.
     giorni_base_url: str = "http://localhost:8000"
+    # Come sopra: load_settings richiede CATALOGO_BASE_URL.
+    catalogo_base_url: str = "http://localhost:8001"
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
@@ -40,10 +42,12 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     base_url = value("LMSTUDIO_BASE_URL")
     model = value("LMSTUDIO_MODEL")
     giorni_base_url = value("GIORNI_BASE_URL")
+    catalogo_base_url = value("CATALOGO_BASE_URL")
     for name, found in (
         ("LMSTUDIO_BASE_URL", base_url),
         ("LMSTUDIO_MODEL", model),
         ("GIORNI_BASE_URL", giorni_base_url),
+        ("CATALOGO_BASE_URL", catalogo_base_url),
     ):
         if not found:
             problems.append(f"{name} mancante")
@@ -74,4 +78,5 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         default_timezone=default_timezone,
         max_tool_steps=max_tool_steps,
         giorni_base_url=giorni_base_url,
+        catalogo_base_url=catalogo_base_url,
     )
