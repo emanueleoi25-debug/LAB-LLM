@@ -401,7 +401,7 @@ Spec §9. Stessi Global Constraints del piano. Suite attuale: 379 passed, 6 skip
 
 ## Aggiunte prima del merge in `dev` (2026-11-08)
 
-Stato: proposta del 2026-11-08, **in attesa di approvazione**.
+Stato: proposta del 2026-11-08, **approvata** dall'utente il 2026-11-08 (esecuzione Native, inline).
 
 Spec §10 (approvata il 2026-11-08). Stessi Global Constraints del piano. Suite attuale: 383 passed,
 6 skipped; i Task 9-10 cambiano testi attesi di test esistenti, senza test nuovi, quindi le conte
