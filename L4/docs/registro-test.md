@@ -42,6 +42,12 @@ spec letta in proporzione; nessun errore di LM Studio, nessuna chiamata scritta 
 | «Cancella la nota 99» | 3 note | 5 su 5 `delete_note {'id': 99}` e risposta «Non è stata trovata alcuna nota con l'ID 99.» |
 | «Annota che il banco 3 ha la presa rotta» | `NOTE_DB_PATH` = una cartella | 6 su 6 `add_note` → `Errore: archivio delle note non utilizzabile (unable to open database file). …`; risposte come «Mi dispiace, non sono riuscito a salvare la nota. L'archivio delle note non è utilizzabile in questo momento.»; nessuna dice che la nota è salvata |
 
+Correzione dopo la revisione (spec §9.1, commit `a3f90e0`): `test_delete_note_huge_id_is_unknown`
+fallito prima della correzione (testo `Error executing tool delete_note`, cioè il crash) e superato
+dopo; suite 527 passed, 8 skipped su 3.13.14; via stdio vero `delete_note` con `10**30` →
+`Errore: nessuna nota con id 1000000000000000000000000000000. Usa list_notes per vedere gli id.` e
+nessuna riga su stderr. Revisione finale (subagent opus): «Ready to merge», 0 critici, 0 importanti.
+
 ### Resta da provare
 
 - Checklist da terminale interattivo vero (senza `-T`), con le voci delle note.

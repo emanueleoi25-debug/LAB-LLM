@@ -5,6 +5,32 @@ non era giusto, perché, come è stato risolto, quali alternative sono state sca
 e come è stato verificato. Gli esiti completi delle verifiche sono in
 [`registro-test.md`](registro-test.md).
 
+## 2026-11-08 — Un id enorme mandava in crash il server delle note
+
+**Che cosa non era giusto.** `delete_note` con un id come `10**30` faceva comparire il traceback
+del server nel terminale della chat e il modello leggeva `Errore: server delle note non disponibile
+(errore interno del server). …`, come se il server fosse guasto, mentre l'id semplicemente non
+esiste.
+
+**Causa.** L'SDK accetta interi di qualsiasi grandezza; `sqlite3` invece li rifiuta oltre i 64 bit
+con segno con `OverflowError`. Il server intercettava solo `sqlite3.Error` e `OSError`, quindi l'SDK
+trattava l'eccezione come un crash (messaggio generico, traceback su stderr).
+
+**Soluzione (spec §9.1).** In `delete_note`, un id fuori da `-(2**63)`…`2**63 - 1` dà lo stesso
+testo di un id inesistente, senza interrogare l'archivio (costanti `SQLITE_MIN_INT` e
+`SQLITE_MAX_INT` in `servizio_note/server.py`).
+
+**Ragionamento.** Trovato dalla revisione finale (minore; l'utente ha chiesto di correggerlo). Un id
+che SQLite non può memorizzare non può esistere nell'archivio: «nessuna nota» è la risposta vera.
+Scartato intercettare `OverflowError` intorno a `archivio.delete`: il controllo esplicito dice
+perché e non nasconde altri errori.
+
+**Commit.** `a3f90e0` — `fix(note): un id fuori dagli interi di SQLite è un id inesistente`.
+
+**Verifica.** `test_delete_note_huge_id_is_unknown` (id `10**30`, `-(10**30)`, `2**63`), prima
+fallito e poi superato; suite 527 passed, 8 skipped su 3.13.14; via stdio vero nessuna riga su
+stderr.
+
 ## 2026-11-08 — Un 404 di un altro servizio sembrava un codice inesistente
 
 **Che cosa non era giusto.** Con `CATALOGO_BASE_URL` che punta a un altro servizio FastAPI (il caso

@@ -262,3 +262,25 @@ qualsiasi cartella corrente). Poi `load_mcp_tools(params, NOTE_FAILURE_HINT, tim
 - Piano approvato copiato in `Es.1/plan.md` (commit `docs:`).
 - Commit in Conventional Commits in italiano (`feat(note): …`, `test(note): …`, `build: …`,
   `docs: …`); merge in `dev` con l'ok dell'utente, push solo su richiesta.
+
+## 9. Correzione dopo la revisione finale (2026-11-08, approvata dall'utente il 2026-11-08)
+
+La revisione finale del branch (subagent opus, `b70a8a7..1f1122a`) ha dato «Ready to merge» con 0
+problemi critici, 0 importanti e 5 minori. L'utente ha chiesto di correggere il primo.
+
+### 9.1 Un id fuori dagli interi di SQLite è un id inesistente
+
+`delete_note` con un id fuori dai 64 bit con segno (es. `10**30`) passava la validazione dell'SDK,
+poi `sqlite3` sollevava `OverflowError`, che non è un `sqlite3.Error`: l'SDK lo trattava come un
+crash, con il traceback del server nel terminale della chat e il testo «server delle note non
+disponibile (errore interno del server)» per un id che semplicemente non esiste.
+
+Correzione: un id fuori da `-(2**63)`…`2**63 - 1` dà lo stesso testo di un id inesistente
+(§2.4), senza interrogare l'archivio.
+
+### 9.2 Minori lasciati all'utente
+
+- Il tempo limite reale è circa limite + 2 s (attesa di chiusura del processo nell'SDK).
+- `list_notes` comprime in uno spazio anche tabulazioni e spazi multipli, non solo gli a capo.
+- In `archivio._connect` la connessione non si chiude se la creazione della tabella fallisce.
+- `test_startup_server_hangs` non verifica che il processo figlio sia terminato.

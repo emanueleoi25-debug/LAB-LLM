@@ -3095,6 +3095,11 @@ circa 12 s per la chiusura del processo; `_one_line` comprime tutti gli spazi; c
 chiusa se la creazione della tabella fallisce; il test del server bloccato non controlla il
 processo figlio). Dettagli in `L4/docs/registro-test.md`, sessione (13).
 
+**Correzione dopo la revisione (2026-11-08, spec §9.1, Task 7, richiesta dall'utente):** `a3f90e0`.
+Un id fuori dagli interi di SQLite (es. `10**30`) dà «nessuna nota con id …» invece del crash del
+server. Test nuovo visto fallire e poi passare; suite 527 passed / 8 skipped su 3.13.14; via stdio
+nessuna riga su stderr. Gli altri 4 minori restano all'utente.
+
 ### Note persistenti — piano di implementazione
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

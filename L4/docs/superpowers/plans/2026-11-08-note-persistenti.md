@@ -363,3 +363,25 @@ Tutti i comandi si eseguono da `Es.1/L4` in PowerShell con il venv attivo
 - [ ] **Step 5:** revisione finale del branch (subagent sul modello più capace), poi chiedere
   all'utente l'ok per il merge in `dev`. Push solo su richiesta, dopo la verifica completa
   rieseguita (suite 3.13 e 3.14, LM Studio, checklist Docker di tutti gli strumenti).
+
+---
+
+## Correzione dopo la revisione finale (aggiunta del 2026-11-08, approvata dall'utente il 2026-11-08)
+
+Spec §9. Stesse Global Constraints.
+
+### Task 7: id fuori dagli interi di SQLite (spec §9.1)
+
+**Files:**
+- Modify: `servizio_note/server.py`, `docs/registro-modifiche.md`, `docs/registro-test.md`
+- Test: `tests/test_server_note.py`
+
+- [x] **Step 1: test che fallisce** `test_delete_note_huge_id_is_unknown` con id `10**30`,
+  `-(10**30)` e `2**63` → `(True, PREFIX + "nessuna nota con id <id>. Usa list_notes per vedere gli
+  id.")`. `python -m pytest tests/test_server_note.py -k huge` → FAIL (oggi `Error executing tool
+  delete_note`, cioè il crash).
+- [x] **Step 2: correzione** in `delete_note`: costanti `SQLITE_MIN_INT, SQLITE_MAX_INT = -(2**63),
+  2**63 - 1`; fuori intervallo la nota vale `None` senza chiamare `archivio.delete`.
+- [x] **Step 3: verifiche**: `python -m pytest` verde; via stdio vero `delete_note` con `10**30` →
+  testo «nessuna nota» e nessuna riga su stderr.
+- [x] **Step 4: documentazione** e commit `fix(note): …` e `docs: …`.
