@@ -33,6 +33,7 @@ DELETE_DESCRIPTION = (
 MAX_TEXT = 1000
 MAX_ROWS = 20
 DEFAULT_TIMEZONE = "Europe/Rome"
+SQLITE_MIN_INT, SQLITE_MAX_INT = -(2**63), 2**63 - 1
 
 # WARNING: i ToolError previsti (registrati dall'SDK a INFO sullo stderr ereditato dall'agente)
 # non devono comparire nel terminale della chat; un crash resta visibile.
@@ -106,10 +107,15 @@ def list_notes() -> str:
 @server.tool(description=DELETE_DESCRIPTION)
 def delete_note(id: int) -> str:  # noqa: A002 - il nome del parametro è quello visto dal modello
     path = _db_path()
-    try:
-        note = archivio.delete(path, id)
-    except (sqlite3.Error, OSError) as exc:
-        raise _unusable(exc) from exc
+    # Un id fuori dagli interi di SQLite (64 bit con segno) non può esistere: sqlite3 solleverebbe
+    # OverflowError, che l'SDK tratterebbe come un crash.
+    if SQLITE_MIN_INT <= id <= SQLITE_MAX_INT:
+        try:
+            note = archivio.delete(path, id)
+        except (sqlite3.Error, OSError) as exc:
+            raise _unusable(exc) from exc
+    else:
+        note = None
     if note is None:
         raise ToolError(f"nessuna nota con id {id}. Usa list_notes per vedere gli id.")
     return f"Nota {note.id} eliminata: «{note.testo}»."

@@ -183,3 +183,12 @@ def test_archive_unusable(case, tmp_path, monkeypatch):
         assert is_error, text
         assert text.startswith(prefix(name) + "archivio delle note non utilizzabile ("), text
         assert text.endswith("). " + NOTE_FAILURE_HINT), text
+
+
+@pytest.mark.parametrize("note_id", [10**30, -(10**30), 2**63])
+def test_delete_note_huge_id_is_unknown(note_id):
+    """Un id fuori dagli interi di SQLite (64 bit con segno) è un id inesistente, non un crash."""
+    assert call("delete_note", {"id": note_id}) == (
+        True,
+        prefix("delete_note") + f"nessuna nota con id {note_id}. Usa list_notes per vedere gli id.",
+    )
