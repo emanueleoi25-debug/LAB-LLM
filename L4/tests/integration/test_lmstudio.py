@@ -69,3 +69,15 @@ def test_real_model_uses_date_info(graph):
     results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "date_info"]
     assert any("Festa della Repubblica" in r for r in results), results
     assert reply.strip()
+
+
+def test_real_model_uses_catalog(graph):
+    base_url = load_settings().catalogo_base_url
+    try:
+        httpx.get(f"{base_url}/salute", timeout=5).raise_for_status()
+    except httpx.HTTPError as exc:
+        pytest.fail(f"servizio catalogo non avviato: {exc}")
+    history, reply = ask(graph, new_history(), "Dove trovo il multimetro?")
+    results = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "search_catalog"]
+    assert any("LAB-001" in r for r in results), results
+    assert "Armadio A" in reply, reply
