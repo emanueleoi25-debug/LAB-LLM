@@ -3088,8 +3088,12 @@ LM Studio 8/8. Persistenza verificata dalla venv e in Docker (volume `note`). Se
 `google/gemma-4-e2b` ridotta a 30 tentativi su decisione dell'utente: annota 9/9, elenca 5/5,
 cancella per descrizione 5/5, id inesistente 5/5, archivio inutilizzabile 6/6 senza falsi
 «salvata». Ruling: `NOTE_TIMEZONE` non valido blocca solo `list_notes`; parametro `label` in
-`load_mcp_tools` (previsto dal piano). `CLAUDE.md` da aggiornare dopo l'ok dell'utente. Dettagli in
-`L4/docs/registro-test.md`, sessione (13).
+`load_mcp_tools` (previsto dal piano). `CLAUDE.md` aggiornato dopo l'ok dell'utente (`c2fd54d`).
+Revisione finale (subagent opus, `b70a8a7..1f1122a`): «Ready to merge», 0 critici, 0 importanti, 5
+minori lasciati all'utente (id enorme → crash del server invece di «nessuna nota»; limite reale
+circa 12 s per la chiusura del processo; `_one_line` comprime tutti gli spazi; connessione non
+chiusa se la creazione della tabella fallisce; il test del server bloccato non controlla il
+processo figlio). Dettagli in `L4/docs/registro-test.md`, sessione (13).
 
 ### Note persistenti — piano di implementazione
 
