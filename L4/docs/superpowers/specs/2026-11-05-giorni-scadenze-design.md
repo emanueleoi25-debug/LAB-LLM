@@ -330,3 +330,89 @@ problema non c'è (`http://giorni:8000`).
 Suite senza modello verde su 3.13 e 3.14; prove reali con LM Studio 6/6 con il servizio acceso;
 i tempi del §9.2 nel registro. Commit `fix(strumenti):` per il §9.1, `fix(config):` per il §9.2
 (`.env.example` e README), `docs:` per registro e `plan.md`.
+
+## 10. Aggiunte prima del merge in `dev` (2026-11-08)
+
+Stato: proposta del 2026-11-08, **in attesa di approvazione**.
+
+Punti rimasti aperti dopo la §9, scelti dall'utente il 2026-11-08: comportamento del modello con il
+servizio spento, rischio `GG-MM` (prima misurato con uno spike), fuso dei log in Docker e
+`127.0.0.1` per LM Studio. I minori della revisione finale restano annotati senza correzione.
+
+### 10.1 Servizio spento: il testo d'errore chiede di non rispondere a mente
+
+Con il servizio spento il modello riceve `Errore: servizio giorni non raggiungibile a …` e risponde
+comunque con un numero calcolato a mente («Ci sono 50 giorni rimanenti a Natale.», registro,
+sessione 8). L'utente ha scelto di mettere l'indicazione **solo nel testo d'errore dello
+strumento**, senza allungare il prompt di sistema né le descrizioni.
+
+- I testi dei guasti del servizio (§2, «Testi d'errore dello strumento», e §9.1) ricevono la stessa
+  coda, dopo il punto finale:
+  `Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a mente.`
+  - `Errore: servizio giorni non raggiungibile a <GIORNI_BASE_URL>. Non è possibile calcolare il risultato: dillo all'utente e non calcolarlo a mente.`
+  - `Errore: risposta non valida dal servizio giorni (HTTP <codice>). Non è possibile …` (stessa coda)
+  - `Errore: risposta non valida dal servizio giorni. Non è possibile …` (variante senza codice, §9.1)
+- Gli errori di validazione (`Errore: ` seguito dal `detail` di una risposta 400) **non cambiano**:
+  il modello li riporta già correttamente («il 30 febbraio non esiste», 9 su 10).
+- Prompt di sistema e descrizioni degli strumenti non cambiano.
+- Test in `tests/test_dates.py`, aggiornati prima del codice: i testi attesi dei guasti includono
+  la coda, per tutti e quattro gli strumenti; un errore 400 resta senza coda.
+- README: esempi e riga di diagnosi del servizio spento aggiornati con il nuovo testo, presi da
+  un'esecuzione reale.
+- Verifica (serie su gemma, venv locale, nessun processo sulla porta 8000, una sessione nuova per
+  tentativo): «Quanti giorni mancano a Natale?», 10 tentativi **prima** della modifica e 10
+  **dopo**. Criterio: dopo la modifica almeno 8 risposte su 10 senza un numero di giorni (la
+  risposta dice che il calcolo non è disponibile). Un numero nella risposta conta come fallimento
+  anche se è esatto.
+
+### 10.2 Configurazione: fuso dei log in Docker e `127.0.0.1` per LM Studio
+
+- `compose.yaml`: `TZ: Europe/Rome` nell'`environment` del servizio `assistente`, così i timestamp
+  dei log nel container sono nell'ora di Roma invece che in UTC. Valore fisso, non letto da
+  `DEFAULT_TIMEZONE`: l'orologio usa già `DEFAULT_TIMEZONE` e non dipende da `TZ`. L'immagine
+  `python:3.14.9-slim` contiene già `/usr/share/zoneinfo/Europe/Rome` (verificato il 2026-11-08). I
+  servizi `giorni` e `test` non cambiano.
+- LM Studio ascolta solo su `127.0.0.1:1234` (verificato con `netstat`). Come per il servizio
+  giorni (§9.2), `localhost` su Windows prova prima `::1`: con curl 0,21 s contro 0,002 s. Il client
+  OpenAI riusa la connessione, quindi il ritardo pesa sulla prima connessione.
+  - `.env.example`: `LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1`; README: esempio nella tabella
+    delle variabili (con la stessa spiegazione di `GIORNI_BASE_URL`) e comando
+    `Invoke-RestMethod http://127.0.0.1:1234/v1/models`. Anche il `.env` locale, fuori da Git.
+  - Codice, valori dei test e Docker (`host.docker.internal`) non cambiano.
+- Verifica: tempo della prima richiesta a `GET /v1/models` in Python (httpx) con `localhost` e con
+  `127.0.0.1`, nel registro; in Docker, un timestamp dei log confrontato con l'ora di Roma.
+
+### 10.3 Date senza anno: `days_between` non deve aggiungere l'anno
+
+Spike del 2026-11-08 (solo gemma, servizio acceso, una sessione nuova per tentativo, script usa e
+getta, interrotto dall'utente a 36 tentativi su 40):
+
+| Domanda | Esito |
+|---|---|
+| «Che giorno della settimana è il 3 aprile?» | 10 su 10 `date_info` `04-03` |
+| «Il 5/3/2027 è un giorno lavorativo?» | 9 su 10 `2027-03-05`; 1 `05-03-2027` → `Errore: data non valida …`, il modello chiede il formato |
+| «Quanti giorni mancano all'11 febbraio?» | giorno e mese giusti 10 su 10; anno: 8 su 10 `2027-02-11` o `02-11` (95 giorni), **2 su 10 `2026-02-11`** (-270 giorni, «l'11 febbraio è già passato» / «sono passati 270 giorni») |
+| «Che data sarà 10 giorni dopo il 4 luglio?» | 6 su 6 `add_days` `start` `07-04` |
+
+- **Rischio `GG-MM`: nessuno scambio su 36.** Nessuna correzione; l'esito va nel registro.
+- **Problema nuovo:** con una data senza anno il modello a volte aggiunge da sé l'anno corrente
+  invece di passare `MM-GG`; se la data è già passata nell'anno il conteggio esce negativo e la
+  risposta non risponde alla domanda. L'utente ha scelto di correggere **solo la descrizione di
+  `days_between`** (§2), dove il problema si è visto; prompt e altre descrizioni non cambiano.
+- Nuova descrizione di `days_between` (cambia solo la frase sull'anno):
+  `Conta i giorni tra due date: giorni di calendario e giorni lavorativi in Italia (esclusi sabati, domeniche e festività nazionali). Parametri: end, la data di arrivo; start, la data di partenza (omettilo per partire da oggi). Date come AAAA-MM-GG; se l'utente non dice l'anno passa MM-GG (es. '12-25' per Natale) senza aggiungere tu l'anno: si usa la prossima occorrenza. Se una data non è valida restituisce un errore che spiega il motivo: chiamalo comunque, non rispondere a mente.`
+- Test: `test_descriptions_are_exact` in `tests/test_dates.py` aggiornato prima del codice.
+- Verifica (gemma, servizio acceso, una sessione nuova per tentativo): «Quanti giorni mancano
+  all'11 febbraio?», 10 tentativi. Criterio: nessuna data di arrivo già passata (10 su 10 con
+  `end` `02-11` o nell'anno successivo). Con 10 tentativi la differenza da 8 su 10 è poco
+  significativa: se esce anche una sola data passata l'esito si annota, e la frase resta solo se
+  non peggiora rispetto allo spike (almeno 8 su 10). Controlli: «Quanti giorni mancano a Natale?»
+  e «Il 2 giugno 2027 è festivo?», 2 tentativi ciascuno, invariati.
+
+### 10.4 Criteri e commit
+
+Suite senza modello verde su 3.13 e 3.14; prove reali con LM Studio 6/6 con il servizio acceso; le
+serie e i tempi dei §10.1-10.3 nel registro. Commit: `fix(strumenti):` per il §10.1,
+`fix(strumenti):` per il §10.3, `fix(config):` per `127.0.0.1` e `build:` per `TZ` (§10.2), `docs:`
+per README, registro e `plan.md`. La checklist in Docker si esegue nella verifica completa prima
+del push, insieme al resto.
