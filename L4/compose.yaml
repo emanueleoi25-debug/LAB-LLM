@@ -11,6 +11,9 @@ services:
       LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
       # Servizio giorni e scadenze: raggiunto per nome di servizio sulla rete di Compose.
       GIORNI_BASE_URL: http://giorni:8000
+      # Ora dei log nel fuso di Roma (senza, i timestamp sono in UTC). L'orologio non dipende
+      # da TZ: usa DEFAULT_TIMEZONE.
+      TZ: Europe/Rome
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

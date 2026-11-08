@@ -350,7 +350,8 @@ L'immagine usa Python 3.14.9; LM Studio resta sull'host e il container lo raggiu
 (vedi Configurazione). Il servizio giorni è il servizio Compose `giorni`, che `assistente` richiede
 (`depends_on`) e raggiunge per nome con `GIORNI_BASE_URL=http://giorni:8000`; la sua porta è
 pubblicata solo su `127.0.0.1:8000`. Non avviare insieme il servizio locale e quello Docker: usano
-la stessa porta dell'host.
+la stessa porta dell'host. Nel servizio `assistente` Compose imposta `TZ: Europe/Rome`, così l'ora
+dei log è quella di Roma e non UTC; l'orologio non dipende da `TZ` (usa `DEFAULT_TIMEZONE`).
 
 ```powershell
 docker compose build
