@@ -8,3 +8,4 @@ geonamescache==3.0.2
 fastapi==0.159.1
 uvicorn==0.54.0
 httpx==0.28.1
+mcp==2.3.0
