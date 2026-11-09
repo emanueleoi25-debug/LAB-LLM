@@ -3465,3 +3465,438 @@ Tutti i comandi si eseguono da `Es.1/L4` in PowerShell con il venv attivo
 - [ ] **Step 5:** revisione finale del branch (subagent sul modello più capace), poi chiedere
   all'utente l'ok per il merge in `dev`. Push solo su richiesta, dopo la verifica completa
   rieseguita (suite 3.13 e 3.14, LM Studio, checklist Docker di tutti gli strumenti).
+
+## 2026-11-09 — L4: router (step 1 della lezione 6)
+
+Approvato il 2026-11-09 (esecuzione: Native, revisione finale opus).
+Spec: `L4/docs/superpowers/specs/2026-11-09-router-design.md`.
+Fonte: `L4/docs/superpowers/plans/2026-11-09-router.md`.
+
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Un nodo LLM `router` prima dell'agente decide se la domanda è in ambito; quelle fuori ambito ricevono un rifiuto fisso senza raggiungere l'agente.
+
+**Architecture:** Nuovo modulo `assistente/router.py` (prompt, contesto, schema, lettura della decisione) usato da due nodi nuovi del grafo (`router`, `rifiuto`); il nodo `modello` diventa `agente`. L'ambito sta in `ambito.md`, letto da `config.py`. Il modello del router è lo stesso di LM Studio con `response_format` a schema JSON e `temperature=0`.
+
+**Tech Stack:** Python 3.13/3.14, LangGraph 1.2.17, langchain-openai 1.7.2, pytest. Nessuna dipendenza nuova.
+
+**Spec:** `docs/superpowers/specs/2026-11-09-router-design.md`
+
+### Global Constraints
+
+- Lavorare solo in `Es.1/L4`, branch `feat/router` (da `dev` = `4a7b34b`); niente worktree.
+- Nessuna dipendenza nuova; codice sincrono.
+- Testi per l'utente e log in italiano, copiati esattamente dalla spec (§3.2 prompt, §3.4 rifiuto, §5 log, §4.2 errori di configurazione).
+- Valori fissi: categorie `"conversazione"` e `"fuori_ambito"`, `CONTEXT_MESSAGES = 4`, nome dello schema `"decisione_router"`, `strict: True`, `temperature=0`, `AMBITO_PATH` predefinita `ambito.md`.
+- I test automatici non richiedono LM Studio né rete; la suite deve passare su 3.13 (`python -m pytest`) e 3.14 (`docker compose --profile test run --rm --build test`).
+- Prima di ogni commit: `git status`, controllo del diff, staging selettivo. Conventional Commits in italiano, con la riga `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Nessun push.
+- Comandi dei task: da `Es.1/L4`, con la venv (`./.venv/Scripts/python.exe -m pytest …` in bash, `python -m pytest …` in PowerShell).
+
+### Review Focus
+
+1. Domanda in ambito subito dopo un rifiuto → il router decide di nuovo e l'agente risponde, ricevendo nella cronologia la domanda rifiutata e il rifiuto (Task 4, `test_refusal_then_in_scope_question`).
+2. Eccezione del modello del router diversa da `openai.APIError` (per esempio `LengthFinishReasonError` dell'SDK quando la risposta è troncata) → `run_chat` scarta la domanda e continua (Task 5, `test_router_error_discards_question_and_continues`).
+3. `ambito.md` salvato con il BOM UTF-8 (Blocco note di Windows) → il BOM non finisce nel prompt (Task 2, `test_ambito_bom_is_removed`).
+4. `AMBITO_PATH` che punta a una cartella o a un file non UTF-8 → errore di configurazione «non leggibile», non un traceback (Task 2, `test_ambito_unreadable`).
+5. Categoria con maiuscole o spazi (`"Fuori_ambito"`) → risposta non utilizzabile, la domanda passa all'agente (Task 3, caso nel parametrizzato).
+
+---
+
+#### Task 1: Spike del `response_format` con gemma (controllo prima del codice)
+
+Nessun codice nel progetto. Richiede LM Studio acceso con `google/gemma-4-e2b`.
+
+**Files:**
+- Create: script usa e getta nella scratchpad (non nel progetto)
+- Modify: `docs/superpowers/specs/2026-11-09-router-design.md` (nuovo §9 «Esito dello spike»)
+
+- [ ] **Step 1: Scrivere lo script nella scratchpad.** Usa `ChatOpenAI(base_url="http://127.0.0.1:1234/v1", api_key="lm-studio", model="google/gemma-4-e2b", temperature=0).bind(response_format=…)` con lo schema del §3.5 e il prompt del §3.2 (ambito del §4.1), e manda 6 domande: «Ciao!», «Che ore sono a Tokyo?», «C'è un oscilloscopio in laboratorio?», «Dammi la ricetta della carbonara», «Scrivi una poesia sul mare», «Che farmaco prendo per il mal di testa?». Per ciascuna stampa il testo grezzo, l'esito di `json.loads` e il tempo.
+- [ ] **Step 2: Eseguirlo.** Atteso: nessun errore HTTP 400 e 6/6 risposte JSON con le sole chiavi `categoria` (uno dei due valori) e `motivo`.
+- [ ] **Step 3: Decidere.** Se LM Studio rifiuta `response_format` o il JSON non rispetta lo schema: fermarsi, riferire all'utente e rivedere spec e piano prima di andare avanti. Altrimenti annotare l'esito (risposte, categorie, tempi) nel §9 della spec.
+- [ ] **Step 4: Commit**
+
+```bash
+git add docs/superpowers/specs/2026-11-09-router-design.md
+git commit -m "docs: esito dello spike sul response_format del router"
+```
+
+#### Task 2: Ambito da file nella configurazione
+
+**Files:**
+- Create: `ambito.md` (testo esatto del §4.1 della spec)
+- Modify: `assistente/config.py` (`Settings.ambito`, lettura di `AMBITO_PATH`)
+- Modify: `.env.example` (riga commentata `# AMBITO_PATH=ambito.md` con una frase di spiegazione)
+- Modify: `Dockerfile` (`COPY ambito.md .` negli stage `test` e `app`)
+- Test: `tests/test_config.py`
+
+**Interfaces:**
+- Produces: `Settings.ambito: str = ""` (testo dell'ambito senza spazi esterni); `load_settings` lo valorizza sempre da `AMBITO_PATH` (predefinita `ambito.md`).
+
+- [ ] **Step 1: Scrivere i test che falliscono** (in `tests/test_config.py`, usano `BASE` e `tmp_path`)
+
+```python
+def test_ambito_default_is_project_file():
+    s = load_settings(BASE)
+    assert s.ambito.startswith("# Ambito dell'assistente del laboratorio")
+
+def test_ambito_path_is_read_and_stripped(tmp_path):
+    f = tmp_path / "a.md"
+    f.write_text("\n  Solo orari.  \n", encoding="utf-8")
+    assert load_settings({**BASE, "AMBITO_PATH": str(f)}).ambito == "Solo orari."
+
+def test_ambito_bom_is_removed(tmp_path):
+    f = tmp_path / "a.md"
+    f.write_bytes("﻿Solo orari.".encode("utf-8"))
+    assert load_settings({**BASE, "AMBITO_PATH": str(f)}).ambito == "Solo orari."
+
+def test_ambito_missing_file(tmp_path):
+    with pytest.raises(ConfigError, match="AMBITO_PATH non leggibile"):
+        load_settings({**BASE, "AMBITO_PATH": str(tmp_path / "manca.md")})
+
+@pytest.mark.parametrize("kind", ["cartella", "non_utf8"])
+def test_ambito_unreadable(tmp_path, kind):
+    path = tmp_path
+    if kind == "non_utf8":
+        path = tmp_path / "a.md"
+        path.write_bytes("perché".encode("cp1252"))
+    with pytest.raises(ConfigError, match="AMBITO_PATH non leggibile"):
+        load_settings({**BASE, "AMBITO_PATH": str(path)})
+
+def test_ambito_empty_file(tmp_path):
+    f = tmp_path / "a.md"
+    f.write_text("  \n ", encoding="utf-8")
+    with pytest.raises(ConfigError, match="AMBITO_PATH vuoto"):
+        load_settings({**BASE, "AMBITO_PATH": str(f)})
+```
+
+- [ ] **Step 2: Eseguire e verificare che falliscano**
+
+Run: `./.venv/Scripts/python.exe -m pytest tests/test_config.py -v`
+Expected: FAIL dei nuovi test (`AttributeError: 'Settings' object has no attribute 'ambito'` o nessun `ConfigError`); i test esistenti passano.
+
+- [ ] **Step 3: Creare `ambito.md` e implementare la lettura in `load_settings`.** Lettura con `encoding="utf-8-sig"`; qualsiasi `OSError` o `UnicodeDecodeError` diventa il problema `AMBITO_PATH non leggibile: '<percorso>' (<errore>)`; testo vuoto dopo `strip()` → `AMBITO_PATH vuoto: '<percorso>'`. I problemi si aggiungono alla lista `problems` esistente (un unico `ConfigError`). Aggiornare `.env.example` e `Dockerfile`.
+
+- [ ] **Step 4: Eseguire tutta la suite**
+
+Run: `./.venv/Scripts/python.exe -m pytest`
+Expected: PASS (527 passed + i nuovi, 8 skipped).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add ambito.md assistente/config.py .env.example Dockerfile tests/test_config.py
+git commit -m "feat(config): ambito dell'assistente da file"
+```
+
+#### Task 3: Modulo del router e modello del router
+
+**Files:**
+- Create: `assistente/router.py`
+- Modify: `assistente/model.py` (`create_router_model`)
+- Test: `tests/test_router.py` (nuovo), `tests/test_model.py`
+
+**Interfaces:**
+- Consumes: `Settings` (campi `base_url`, `model`).
+- Produces (in `assistente/router.py`): `CONVERSATION = "conversazione"`, `OUT_OF_SCOPE = "fuori_ambito"`, `CONTEXT_MESSAGES = 4`, `UNUSABLE_REASON = "risposta del router non utilizzabile"`, `DECISION_SCHEMA` (dict del §3.5), `@dataclass(frozen=True) class Decision(categoria: str, motivo: str, errore: str | None, grezza: str)`, `class Router(model, scope: str)` con `classify(messages: list[BaseMessage]) -> Decision`.
+- Produces (in `assistente/model.py`): `create_router_model(settings: Settings) -> Runnable`.
+- `router.py` non importa `assistente.graph` a runtime (il grafo importerà il router): il tipo `ChatModel` si importa solo sotto `TYPE_CHECKING`.
+
+- [ ] **Step 1: Scrivere i test che falliscono** (`tests/test_router.py`)
+
+```python
+import pytest
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+
+from assistente.router import CONVERSATION, OUT_OF_SCOPE, UNUSABLE_REASON, Decision, Router
+from tests.fakes import ScriptedModel
+
+VALID = '{"categoria": "conversazione", "motivo": "ora di una città"}'
+
+def classify(content, messages=None):
+    model = ScriptedModel([AIMessage(content)])
+    decision = Router(model, "AMBITO DI PROVA").classify(messages or [SystemMessage("s"), HumanMessage("domanda")])
+    return decision, model
+
+def test_valid_conversation():
+    assert classify(VALID)[0] == Decision(CONVERSATION, "ora di una città", None, VALID)
+
+def test_valid_out_of_scope_with_extra_field():
+    raw = '{"categoria": "fuori_ambito", "motivo": "ricetta", "extra": 1}'
+    assert classify(raw)[0] == Decision(OUT_OF_SCOPE, "ricetta", None, raw)
+
+def test_surrounding_spaces_are_ignored():
+    assert classify(f"  {VALID}\n")[0].errore is None
+
+@pytest.mark.parametrize("content, errore", [
+    ("non json", "JSON non valido"),
+    ('Ecco: {"categoria": "conversazione", "motivo": "m"}', "JSON non valido"),
+    ('["conversazione"]', "non è un oggetto JSON"),
+    ('{"motivo": "m"}', "categoria mancante"),
+    ('{"categoria": "altro", "motivo": "m"}', "categoria sconosciuta: 'altro'"),
+    ('{"categoria": "Fuori_ambito", "motivo": "m"}', "categoria sconosciuta: 'Fuori_ambito'"),
+    ('{"categoria": 3, "motivo": "m"}', "categoria sconosciuta: 3"),
+    ('{"categoria": "fuori_ambito"}', "motivo mancante o vuoto"),
+    ('{"categoria": "fuori_ambito", "motivo": "  "}', "motivo mancante o vuoto"),
+    ('{"categoria": "fuori_ambito", "motivo": 3}', "motivo mancante o vuoto"),
+])
+def test_unusable_reply_falls_back_to_conversation(content, errore):
+    assert classify(content)[0] == Decision(CONVERSATION, UNUSABLE_REASON, errore, content)
+
+def test_non_text_content_is_unusable():
+    content = [{"type": "text", "text": VALID}]
+    decision = Router(ScriptedModel([AIMessage(content)]), "A").classify([HumanMessage("d")])
+    assert (decision.categoria, decision.errore, decision.grezza) == (CONVERSATION, "contenuto non testuale", str(content))
+
+def test_system_message_has_prompt_and_scope():
+    system, human = classify(VALID)[1].calls[0]
+    assert isinstance(system, SystemMessage) and isinstance(human, HumanMessage)
+    assert system.content.startswith("Sei il router dell'assistente del laboratorio.")
+    assert system.content.endswith("Ambito dell'assistente:\nAMBITO DI PROVA")
+
+def test_context_keeps_last_four_text_messages():
+    call = {"name": "calculate", "args": {}, "id": "c1", "type": "tool_call"}
+    history = [
+        SystemMessage("s"), HumanMessage("u1"), AIMessage("a1"), HumanMessage("u2"),
+        AIMessage("", tool_calls=[call]), ToolMessage("r", tool_call_id="c1", name="calculate"),
+        AIMessage("a2"), HumanMessage("u3"), AIMessage("riga1\nriga2"), HumanMessage("domanda\nfinale"),
+    ]
+    human = classify(VALID, history)[1].calls[0][1]
+    assert human.content == (
+        "Conversazione recente:\nUtente: u2\nAssistente: a2\nUtente: u3\nAssistente: riga1 riga2"
+        "\n\nDomanda da classificare:\ndomanda finale"
+    )
+
+def test_context_without_previous_messages():
+    human = classify(VALID)[1].calls[0][1]
+    assert human.content == "Conversazione recente: (nessuna)\n\nDomanda da classificare:\ndomanda"
+```
+
+In `tests/test_model.py`:
+
+```python
+from assistente.model import create_router_model
+from assistente.router import DECISION_SCHEMA
+
+def test_router_model_uses_schema_and_zero_temperature():
+    bound = create_router_model(settings())
+    assert bound.kwargs["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "decisione_router", "strict": True, "schema": DECISION_SCHEMA},
+    }
+    assert "tools" not in bound.kwargs
+    assert bound.bound.temperature == 0 and bound.bound.model_name == "google/gemma-4-e2b"
+```
+
+- [ ] **Step 2: Eseguire e verificare che falliscano**
+
+Run: `./.venv/Scripts/python.exe -m pytest tests/test_router.py tests/test_model.py -v`
+Expected: FAIL con `ModuleNotFoundError: No module named 'assistente.router'` / `ImportError: cannot import name 'create_router_model'`.
+
+- [ ] **Step 3: Implementare `assistente/router.py`.** Prompt di sistema copiato esattamente dal §3.2 della spec, seguito da `"\n\nAmbito dell'assistente:\n" + scope`. Messaggio utente e scelta del contesto come nei test (a capo → spazio in ogni testo, compresa la domanda; la domanda è l'ultima `HumanMessage`). `classify` registra a `DEBUG` sul logger `assistente.router` ogni messaggio mandato come `→ router [<sistema|utente>] <testo su una riga>`, chiama `model.invoke` una volta e non intercetta eccezioni. Ordine dei controlli sulla risposta: contenuto non stringa → `"contenuto non testuale"`; `json.loads(testo.strip())` fallisce → `"JSON non valido"`; non `dict` → `"non è un oggetto JSON"`; manca `categoria` → `"categoria mancante"`; categoria fuori dai due valori → `f"categoria sconosciuta: {valore!r}"`; `motivo` non stringa o vuoto dopo `strip()` → `"motivo mancante o vuoto"`. Nel caso valido `motivo` è restituito con `strip()`.
+
+- [ ] **Step 4: Implementare `create_router_model` in `assistente/model.py`** come nel §4.3 della spec (`ChatOpenAI(..., temperature=0).bind(response_format=...)`).
+
+- [ ] **Step 5: Eseguire tutta la suite**
+
+Run: `./.venv/Scripts/python.exe -m pytest`
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add assistente/router.py assistente/model.py tests/test_router.py tests/test_model.py
+git commit -m "feat(router): decisione del router con schema JSON e lettura validata"
+```
+
+#### Task 4: Nodi `router` e `rifiuto` nel grafo
+
+**Files:**
+- Modify: `assistente/graph.py` (stato, rinomina `modello` → `agente`, nodi, instradamento, `REFUSAL_REPLY`, docstring del modulo con il nuovo schema del §2)
+- Test: `tests/test_graph.py`
+
+**Interfaces:**
+- Consumes: `Router`, `Decision`, `OUT_OF_SCOPE` da Task 3.
+- Produces: `REFUSAL_REPLY` (testo esatto del §3.4); `build_graph(model, tools=(), max_tool_steps=3, *, router: Router | None = None)`; `AssistantState` con `categoria: NotRequired[str]` e `motivo: NotRequired[str]`. Nodi: con router `router`, `agente`, `strumenti`, `limite`, `rifiuto`; senza router `agente`, `strumenti`, `limite` (si parte da `agente`).
+
+- [ ] **Step 1: Aggiornare i due test esistenti sui nomi dei nodi** (`modello` → `agente`) e scrivere i nuovi test
+
+```python
+import json
+from assistente.graph import REFUSAL_REPLY
+from assistente.router import Router
+
+def router_says(*categorie):
+    replies = [AIMessage(json.dumps({"categoria": c, "motivo": f"motivo {c}"})) for c in categorie]
+    return Router(ScriptedModel(replies), "ambito")
+
+def test_graph_nodes_with_router():
+    nodes = set(build_graph(ScriptedModel([]), [clock], router=router_says()).get_graph().nodes)
+    assert {"router", "agente", "strumenti", "limite", "rifiuto"} <= nodes
+
+def test_in_scope_question_reaches_agent(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([AIMessage("Ciao!")])
+    result = build_graph(agent, router=router_says("conversazione")).invoke(start("Ciao"))
+    assert len(agent.calls) == 1 and result["messages"][-1].content == "Ciao!"
+    assert (result["categoria"], result["motivo"]) == ("conversazione", "motivo conversazione")
+    assert "router: categoria=conversazione motivo=motivo conversazione" in caplog.text
+    assert "router → agente" in caplog.text
+
+def test_out_of_scope_question_is_refused_without_agent(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([])
+    result = build_graph(agent, router=router_says("fuori_ambito")).invoke(start("ricetta?"))
+    assert agent.calls == []
+    assert [m.type for m in result["messages"]] == ["human", "ai"]
+    assert result["messages"][-1].content == REFUSAL_REPLY
+    assert "router → rifiuto" in caplog.text
+    assert "rifiuto: domanda fuori ambito, agente non eseguito" in caplog.text
+    assert "→ modello" not in caplog.text
+
+def test_unusable_router_reply_falls_back_to_agent(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([AIMessage("ok")])
+    router = Router(ScriptedModel([AIMessage("boh\nnon so")]), "ambito")
+    result = build_graph(agent, router=router).invoke(start())
+    assert len(agent.calls) == 1 and result["categoria"] == "conversazione"
+    warning = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert warning[0].getMessage() == (
+        "router: risposta non utilizzabile (JSON non valido), la domanda passa all'agente: boh\\nnon so"
+    )
+    assert "router → agente" in caplog.text
+
+def test_router_messages_stay_out_of_history():
+    agent = ScriptedModel([AIMessage("ok")])
+    result = build_graph(agent, router=router_says("conversazione")).invoke(start("d"))
+    assert [m.type for m in agent.calls[0]] == ["human"]
+    assert [m.type for m in result["messages"]] == ["human", "ai"]
+
+def test_tool_cycle_works_after_router():
+    model = tokyo_scenario()
+    result = build_graph(model, [clock], router=router_says("conversazione")).invoke(start("ora a Tokyo?"))
+    assert result["messages"][-1].content == "Sono le 01:05"
+
+def test_limit_works_after_router():
+    loop = AIMessage("", tool_calls=[call("get_current_time", {}, "c1")])
+    model = ScriptedModel([loop, AIMessage("", tool_calls=[call("get_current_time", {}, "c2")])])
+    result = build_graph(model, [clock], max_tool_steps=1, router=router_says("conversazione")).invoke(start())
+    assert result["messages"][-1].content == LIMIT_REPLY.format(max_tool_steps=1)
+
+def test_refusal_then_in_scope_question():
+    agent = ScriptedModel([AIMessage("Sono le 01:05")])
+    graph = build_graph(agent, router=router_says("fuori_ambito", "conversazione"))
+    history, first = ask(graph, new_history(), "ricetta?")
+    history, second = ask(graph, history, "Che ore sono a Tokyo?")
+    assert (first, second) == (REFUSAL_REPLY, "Sono le 01:05")
+    assert [m.type for m in agent.calls[0]] == ["system", "human", "ai", "human"]
+    assert agent.calls[0][2].content == REFUSAL_REPLY
+```
+
+- [ ] **Step 2: Eseguire e verificare che falliscano**
+
+Run: `./.venv/Scripts/python.exe -m pytest tests/test_graph.py -v`
+Expected: FAIL con `ImportError: cannot import name 'REFUSAL_REPLY'`.
+
+- [ ] **Step 3: Implementare in `assistente/graph.py`.** Nodo `router`: `decision = router.classify(state["messages"])`; se `decision.errore` è `None` → `INFO router: categoria=<c> motivo=<_one_line(motivo)>`, altrimenti `WARNING router: risposta non utilizzabile (<errore>), la domanda passa all'agente: <_one_line(grezza)>`; restituisce `{"categoria": ..., "motivo": ...}`. Funzione di instradamento dopo `router`: registra `INFO router → rifiuto` o `INFO router → agente` e restituisce il nome del nodo. Nodo `rifiuto`: `INFO rifiuto: domanda fuori ambito, agente non eseguito` e `{"messages": [AIMessage(content=REFUSAL_REPLY)]}`. Le righe esistenti dell'agente (`→ modello`, `← modello`) non cambiano testo.
+
+- [ ] **Step 4: Eseguire tutta la suite**
+
+Run: `./.venv/Scripts/python.exe -m pytest`
+Expected: PASS (i test della CLI che chiamano `build_graph(model)` restano invariati).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add assistente/graph.py tests/test_graph.py
+git commit -m "feat(grafo): nodi router e rifiuto prima dell'agente"
+```
+
+#### Task 5: Collegamento nella CLI e prove reali del router
+
+**Files:**
+- Modify: `assistente/cli.py` (`create_graph`)
+- Modify: `tests/test_cli.py`
+- Modify: `tests/integration/test_lmstudio.py` (due prove)
+
+**Interfaces:**
+- Consumes: `Router` (Task 3), `create_router_model` (Task 3), `build_graph(..., router=...)` e `REFUSAL_REPLY` (Task 4), `Settings.ambito` (Task 2).
+
+- [ ] **Step 1: Scrivere i test che falliscono** (`tests/test_cli.py`; il finto delle note come in `test_tools_include_all_local_tools`)
+
+```python
+def test_create_graph_starts_with_router(monkeypatch):
+    monkeypatch.setattr("assistente.cli.make_note_tools", lambda *a: [])
+    graph = create_graph(Settings(base_url="http://localhost:1234/v1", model="m", ambito="A"))
+    assert {"router", "rifiuto", "agente"} <= set(graph.get_graph().nodes)
+
+def test_router_error_discards_question_and_continues():
+    ok = AIMessage('{"categoria": "conversazione", "motivo": "m"}')
+    router = Router(ScriptedModel([RuntimeError("risposta troncata"), ok]), "A")
+    out, errs = io.StringIO(), io.StringIO()
+    run_chat(build_graph(ScriptedModel([AIMessage("ok")]), router=router),
+             input_fn=inputs("prima", "seconda", "esci"), output=out, errors=errs)
+    assert "risposta troncata" in errs.getvalue() and "Domanda scartata" in errs.getvalue()
+    assert "Assistente> ok" in out.getvalue()
+```
+
+- [ ] **Step 2: Eseguire e verificare che il primo fallisca**
+
+Run: `./.venv/Scripts/python.exe -m pytest tests/test_cli.py -v`
+Expected: FAIL di `test_create_graph_starts_with_router` (nodi senza `router`); il secondo può già passare (comportamento esistente di `run_chat`).
+
+- [ ] **Step 3: In `create_graph` costruire `Router(create_router_model(settings), settings.ambito)` e passarlo a `build_graph`.**
+
+- [ ] **Step 4: Eseguire tutta la suite**
+
+Run: `./.venv/Scripts/python.exe -m pytest`
+Expected: PASS.
+
+- [ ] **Step 5: Aggiungere le due prove reali** in `tests/integration/test_lmstudio.py`
+
+```python
+def test_real_router_passes_in_scope_question(graph, caplog):
+    caplog.set_level(logging.INFO)
+    history, reply = ask(graph, new_history(), "Che ore sono a Tokyo?")
+    assert "router: categoria=conversazione" in caplog.text and "router → agente" in caplog.text
+    assert any(isinstance(m, ToolMessage) and m.name == "get_current_time" for m in history)
+
+def test_real_router_refuses_out_of_scope_question(graph, caplog):
+    caplog.set_level(logging.INFO)
+    _, reply = ask(graph, new_history(), "Dammi la ricetta della carbonara")
+    assert reply == REFUSAL_REPLY
+    assert "router: categoria=fuori_ambito" in caplog.text and "→ modello" not in caplog.text
+```
+
+- [ ] **Step 6: Eseguire le prove reali** (LM Studio acceso, servizi giorni e catalogo avviati, `NOTE_DB_PATH` temporaneo)
+
+Run: `RUN_LMSTUDIO_TESTS=1 CATALOGO_BASE_URL=http://127.0.0.1:8001 NOTE_DB_PATH=<file temporaneo> ./.venv/Scripts/python.exe -m pytest -m lmstudio -v`
+Expected: 10 passed (le 8 esistenti, che ora passano anche dal router, più le 2 nuove). Se una delle 8 esistenti fallisce per un falso rifiuto, è un esito da riferire, non da aggirare.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add assistente/cli.py tests/test_cli.py tests/integration/test_lmstudio.py
+git commit -m "feat(router): router collegato all'agente e prove reali"
+```
+
+#### Task 6: Serie con gemma, Docker e documentazione
+
+**Files:**
+- Create: script della serie nella scratchpad (non nel progetto)
+- Modify: `README.md`, `CLAUDE.md` («Struttura e comandi»), `tests/test-manuali.txt`, `docs/registro-test.md`
+
+- [ ] **Step 1: Serie con gemma** (§7.2 punto 3 della spec): uno script nella scratchpad che usa `create_graph(load_settings())` e `ask`, con una cronologia nuova per ogni domanda tranne i seguiti («Mi chiamo Luca» → «Come mi chiamo?», «Che ore sono a Miami?» → «E a Tokyo?»), e stampa per ogni domanda categoria, motivo e risposta. Criterio: 0 falsi rifiuti sulle 6 in ambito, almeno 3 rifiuti su 4 fuori ambito. Se il criterio fallisce: riferire all'utente con le risposte del router, senza cambiare prompt o ambito di propria iniziativa.
+- [ ] **Step 2: Suite su Python 3.14**
+
+Run: `docker compose --profile test run --rm --build test`
+Expected: stesso esito della suite locale.
+
+- [ ] **Step 3: Checklist Docker.** In PowerShell: `"Dammi la ricetta della carbonara", "esci" | docker compose run --rm -T --build assistente`, poi `docker compose stop giorni catalogo`. Atteso: risposta `REFUSAL_REPLY` e nei log `router → rifiuto`, senza righe `→ modello`.
+- [ ] **Step 4: Documentazione.** README: `ambito.md` e `AMBITO_PATH`, il grafo con il router, le righe di log del §5, diagnosi (risposta non utilizzabile; rifiuti inattesi → modificare `ambito.md`), solo comandi verificati negli step precedenti. `CLAUDE.md`: in «Struttura e comandi» `router.py` (decisione del router), `ambito.md` (ambito dell'assistente) e i nodi del grafo (`router`, `agente`, `strumenti`, `limite`, `rifiuto`). `tests/test-manuali.txt`: voce della domanda fuori ambito. `docs/registro-test.md`: nuova sessione con spike, suite 3.13 e 3.14, prove reali, serie, checklist, con comandi ed esiti.
+- [ ] **Step 5: Commit**
+
+```bash
+git add README.md CLAUDE.md tests/test-manuali.txt docs/registro-test.md
+git commit -m "docs: router nel README, in CLAUDE.md e nei registri"
+```
