@@ -29,6 +29,8 @@ class Settings:
     catalogo_base_url: str = "http://localhost:8001"
     # Come sopra: load_settings richiede NOTE_DB_PATH (e la rende assoluta).
     note_db_path: str = "dati/note.db"
+    # Testo dell'ambito per il router; load_settings lo legge sempre da AMBITO_PATH.
+    ambito: str = ""
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
@@ -73,6 +75,17 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     if max_tool_steps < 1:
         problems.append(f"MAX_TOOL_STEPS non valido: '{raw_steps}' (serve un intero maggiore o uguale a 1)")
 
+    ambito_path = value("AMBITO_PATH") or "ambito.md"
+    ambito = ""
+    try:
+        with open(ambito_path, encoding="utf-8-sig") as f:
+            ambito = f.read().strip()
+    except (OSError, UnicodeDecodeError) as exc:
+        problems.append(f"AMBITO_PATH non leggibile: '{ambito_path}' ({exc})")
+    else:
+        if not ambito:
+            problems.append(f"AMBITO_PATH vuoto: '{ambito_path}'")
+
     if problems:
         raise ConfigError("; ".join(problems))
     return Settings(
@@ -85,4 +98,5 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         catalogo_base_url=catalogo_base_url,
         # Assoluta: il sottoprocesso del server delle note non dipende dalla cartella corrente.
         note_db_path=os.path.abspath(note_db_path),
+        ambito=ambito,
     )

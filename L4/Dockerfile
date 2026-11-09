@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 FROM base AS test
 COPY requirements-dev.txt .
 RUN pip install --no-cache-dir -r requirements-dev.txt
-COPY pytest.ini .
+COPY pytest.ini ambito.md ./
 COPY assistente/ assistente/
 COPY servizio_giorni/ servizio_giorni/
 COPY servizio_catalogo/ servizio_catalogo/
@@ -22,6 +22,7 @@ CMD ["python", "-m", "pytest", "-p", "no:cacheprovider"]
 
 # Applicazione (ultimo stage, quindi predefinito): niente test né pytest.
 FROM base AS app
+COPY ambito.md .
 COPY assistente/ assistente/
 COPY servizio_giorni/ servizio_giorni/
 COPY servizio_catalogo/ servizio_catalogo/

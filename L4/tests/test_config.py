@@ -78,6 +78,7 @@ def test_environment_wins_over_dotenv(tmp_path, monkeypatch):
         "NOTE_DB_PATH=dati/note.db\n",
         encoding="utf-8",
     )
+    (tmp_path / "ambito.md").write_text("Ambito di prova.", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("LMSTUDIO_MODEL", "dall-ambiente")
     # setenv prima di delenv: così monkeypatch ripristina anche il valore scritto da load_dotenv
@@ -102,3 +103,42 @@ def test_default_timezone_is_validated_and_canonical():
     assert load_settings({**BASE, "DEFAULT_TIMEZONE": "europe/rome"}).default_timezone == "Europe/Rome"
     with pytest.raises(ConfigError, match="DEFAULT_TIMEZONE"):
         load_settings({**BASE, "DEFAULT_TIMEZONE": "Marte/Base"})
+
+
+def test_ambito_default_is_project_file():
+    s = load_settings(BASE)
+    assert s.ambito.startswith("# Ambito dell'assistente del laboratorio")
+
+
+def test_ambito_path_is_read_and_stripped(tmp_path):
+    f = tmp_path / "a.md"
+    f.write_text("\n  Solo orari.  \n", encoding="utf-8")
+    assert load_settings({**BASE, "AMBITO_PATH": str(f)}).ambito == "Solo orari."
+
+
+def test_ambito_bom_is_removed(tmp_path):
+    f = tmp_path / "a.md"
+    f.write_bytes("﻿Solo orari.".encode("utf-8"))
+    assert load_settings({**BASE, "AMBITO_PATH": str(f)}).ambito == "Solo orari."
+
+
+def test_ambito_missing_file(tmp_path):
+    with pytest.raises(ConfigError, match="AMBITO_PATH non leggibile"):
+        load_settings({**BASE, "AMBITO_PATH": str(tmp_path / "manca.md")})
+
+
+@pytest.mark.parametrize("kind", ["cartella", "non_utf8"])
+def test_ambito_unreadable(tmp_path, kind):
+    path = tmp_path
+    if kind == "non_utf8":
+        path = tmp_path / "a.md"
+        path.write_bytes("perché".encode("cp1252"))
+    with pytest.raises(ConfigError, match="AMBITO_PATH non leggibile"):
+        load_settings({**BASE, "AMBITO_PATH": str(path)})
+
+
+def test_ambito_empty_file(tmp_path):
+    f = tmp_path / "a.md"
+    f.write_text("  \n ", encoding="utf-8")
+    with pytest.raises(ConfigError, match="AMBITO_PATH vuoto"):
+        load_settings({**BASE, "AMBITO_PATH": str(f)})
