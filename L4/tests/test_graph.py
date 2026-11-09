@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -7,7 +8,8 @@ from langchain_core.tools import tool
 
 from assistente.cli import ask, new_history
 from assistente.dates import make_date_tools
-from assistente.graph import LIMIT_REPLY, TOOL_SKIPPED, build_graph
+from assistente.graph import LIMIT_REPLY, REFUSAL_REPLY, TOOL_SKIPPED, build_graph
+from assistente.router import Router
 from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
 from tests.fakes import ScriptedModel
 
@@ -46,12 +48,12 @@ def test_model_receives_all_messages():
 
 
 def test_graph_has_model_node():
-    assert "modello" in build_graph(ScriptedModel([])).get_graph().nodes
+    assert "agente" in build_graph(ScriptedModel([])).get_graph().nodes
 
 
 def test_graph_has_tool_and_limit_nodes():
     nodes = build_graph(ScriptedModel([]), [clock]).get_graph().nodes
-    assert {"modello", "strumenti", "limite"} <= set(nodes)
+    assert {"agente", "strumenti", "limite"} <= set(nodes)
 
 
 def test_tool_call_runs_tool_and_returns_result_to_model():
@@ -241,3 +243,78 @@ def test_date_tool_call_returns_service_text():
     assert isinstance(sent, ToolMessage) and sent.tool_call_id == "c1" and sent.name == "date_info"
     assert sent.content == "2027-06-02 (mercoledì): festività, Festa della Repubblica; non lavorativo."
     assert result["messages"][-1].content == "È festivo."
+
+
+def router_says(*categorie):
+    replies = [AIMessage(json.dumps({"categoria": c, "motivo": f"motivo {c}"})) for c in categorie]
+    return Router(ScriptedModel(replies), "ambito")
+
+
+def test_graph_nodes_with_router():
+    nodes = set(build_graph(ScriptedModel([]), [clock], router=router_says()).get_graph().nodes)
+    assert {"router", "agente", "strumenti", "limite", "rifiuto"} <= nodes
+
+
+def test_in_scope_question_reaches_agent(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([AIMessage("Ciao!")])
+    result = build_graph(agent, router=router_says("conversazione")).invoke(start("Ciao"))
+    assert len(agent.calls) == 1 and result["messages"][-1].content == "Ciao!"
+    assert (result["categoria"], result["motivo"]) == ("conversazione", "motivo conversazione")
+    assert "router: categoria=conversazione motivo=motivo conversazione" in caplog.text
+    assert "router → agente" in caplog.text
+
+
+def test_out_of_scope_question_is_refused_without_agent(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([])
+    result = build_graph(agent, router=router_says("fuori_ambito")).invoke(start("ricetta?"))
+    assert agent.calls == []
+    assert [m.type for m in result["messages"]] == ["human", "ai"]
+    assert result["messages"][-1].content == REFUSAL_REPLY
+    assert "router → rifiuto" in caplog.text
+    assert "rifiuto: domanda fuori ambito, agente non eseguito" in caplog.text
+    assert "→ modello" not in caplog.text
+
+
+def test_unusable_router_reply_falls_back_to_agent(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([AIMessage("ok")])
+    router = Router(ScriptedModel([AIMessage("boh\nnon so")]), "ambito")
+    result = build_graph(agent, router=router).invoke(start())
+    assert len(agent.calls) == 1 and result["categoria"] == "conversazione"
+    warning = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert warning[0].getMessage() == (
+        "router: risposta non utilizzabile (JSON non valido), la domanda passa all'agente: boh\\nnon so"
+    )
+    assert "router → agente" in caplog.text
+
+
+def test_router_messages_stay_out_of_history():
+    agent = ScriptedModel([AIMessage("ok")])
+    result = build_graph(agent, router=router_says("conversazione")).invoke(start("d"))
+    assert [m.type for m in agent.calls[0]] == ["human"]
+    assert [m.type for m in result["messages"]] == ["human", "ai"]
+
+
+def test_tool_cycle_works_after_router():
+    model = tokyo_scenario()
+    result = build_graph(model, [clock], router=router_says("conversazione")).invoke(start("ora a Tokyo?"))
+    assert result["messages"][-1].content == "Sono le 01:05"
+
+
+def test_limit_works_after_router():
+    loop = AIMessage("", tool_calls=[call("get_current_time", {}, "c1")])
+    model = ScriptedModel([loop, AIMessage("", tool_calls=[call("get_current_time", {}, "c2")])])
+    result = build_graph(model, [clock], max_tool_steps=1, router=router_says("conversazione")).invoke(start())
+    assert result["messages"][-1].content == LIMIT_REPLY.format(max_tool_steps=1)
+
+
+def test_refusal_then_in_scope_question():
+    agent = ScriptedModel([AIMessage("Sono le 01:05")])
+    graph = build_graph(agent, router=router_says("fuori_ambito", "conversazione"))
+    history, first = ask(graph, new_history(), "ricetta?")
+    history, second = ask(graph, history, "Che ore sono a Tokyo?")
+    assert (first, second) == (REFUSAL_REPLY, "Sono le 01:05")
+    assert [m.type for m in agent.calls[0]] == ["system", "human", "ai", "human"]
+    assert agent.calls[0][2].content == REFUSAL_REPLY
