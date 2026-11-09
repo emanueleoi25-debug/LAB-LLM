@@ -332,3 +332,29 @@ sostituiti dal finto, come negli altri test).
   decisione del router`, `feat(grafo): nodi router e rifiuto`, `feat(config): ambito da file`,
   `test(router): prova reale con LM Studio`, `docs: router nel README e nei registri`.
 - Piano approvato copiato in `Es.1/plan.md`.
+
+## 9. Esito dello spike (2026-11-09, Task 1 del piano)
+
+Eseguito dopo i Task 2-4 (LM Studio spento all'inizio, ruling nel ledger), con il modello indicato
+dall'utente, `google/gemma-4-e4b` (presente in `GET /v1/models`), tramite `create_router_model` e
+`Router` del progetto e l'ambito di `ambito.md`. Server di LM Studio avviato con
+`lms server start --port 1234`.
+
+| Domanda | Categoria | Motivo (dal modello) | Tempo |
+|---|---|---|---|
+| «Ciao!» | conversazione | «Si tratta di un saluto che rientra nell'ambito delle interazioni conversazionali.» | 50,5 s |
+| «Che ore sono a Tokyo?» | conversazione | «La domanda riguarda l'ora attuale e i fusi orari di una città.» | 57,2 s |
+| «C'è un oscilloscopio in laboratorio?» | conversazione | «La domanda riguarda l'inventario e gli articoli presenti nel laboratorio.» | 55,7 s |
+| «Dammi la ricetta della carbonara» | fuori_ambito | «Le ricette non rientrano nell'ambito dell'assistente del laboratorio.» | 43,0 s |
+| «Scrivi una poesia sul mare» | fuori_ambito | «Richieste di testi creativi come poesie rientrano in un ambito non coperto dall'assistente.» | 63,1 s |
+| «Che farmaco prendo per il mal di testa?» | fuori_ambito | «Non posso fornire consigli medici o farmaceutici.» | 57,4 s |
+
+- LM Studio accetta `response_format` di tipo `json_schema` (nessun HTTP 400); 6 risposte su 6 sono
+  JSON con le sole chiavi `categoria` e `motivo`, lette come valide. La spec resta valida così com'è.
+- Confronto sulla stessa domanda (carbonara), due volte ciascuno: con schema 43,7 e 41,4 s, senza
+  schema 44,7 e 44,4 s. Lo schema non rallenta. Senza schema gemma racchiude il JSON in un blocco
+  di codice Markdown, che la lettura del §3.3 rifiuterebbe: lo schema è necessario.
+- In tutti e quattro i casi 398 token in ingresso e 276 in uscita per un JSON di circa 40 token
+  visibili: il modello sembra generare un ragionamento nascosto prima della risposta. Il tempo del
+  router (circa 45 s per domanda con LM Studio di oggi) viene da lì e dalla velocità di LM Studio,
+  non dallo schema.
