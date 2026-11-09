@@ -5,31 +5,43 @@ La cartella del progetto è `Es.1/L4`; all'inizio contiene soltanto questo file.
 Struttura, dipendenze e comandi verranno definiti con la specifica e il piano.
 
 ## Obiettivo
-Un'applicazione da terminale in Python che conversa con un modello locale e:
+Un'applicazione in Python che conversa con un modello locale e:
 - organizza il flusso in un grafo LangGraph esplicito (stato, nodi, instradamento riconoscibili);
 - usa un modello servito da LM Studio, che resta sul computer host;
-- conserva la cronologia della conversazione per la durata della sessione (nessuna persistenza);
+- nella CLI conserva la cronologia della conversazione per la durata della sessione, solo in memoria;
 - offre uno strumento orologio con fuso orario esplicito, richiesto dal modello tramite tool calling
   ed eseguito davvero dal programma;
-- offrirà altri strumenti, sviluppati uno alla volta e in quest'ordine: convertitore di unità e
+- offre altri strumenti, sviluppati uno alla volta e in quest'ordine: convertitore di unità e
   calcolatrice sicura (locali, come l'orologio), giorni e scadenze e catalogo locale (servizi
-  FastAPI), note persistenti e meteo (un server MCP ciascuno);
+  FastAPI), note persistenti e meteo (un server MCP ciascuno). Il meteo è sospeso: resta da
+  terminare;
+- evolve per step (lezione 6), uno alla volta e in quest'ordine: 1 router (conversazione o fuori
+  ambito), 2 revisore (risposta coerente con la domanda), 3 riassunto della cronologia,
+  4 resource MCP (preferenze dell'utente), 5 prompt MCP (comandi `/prompts` e `/prompt`),
+  6 agente come servizio HTTP, 7 back-end con API e chat salvate su database, 8 front-end web
+  di chat, 9 Docker Compose con un container per componente;
 - si avvia anche con Docker Compose.
 
+La CLI da terminale resta anche dopo l'arrivo dell'interfaccia web, come strumento per le prove
+manuali durante lo sviluppo.
+
 ## Confini
-- Implementare solo i requisiti concordati, uno strumento alla volta: non anticipare quelli
-  successivi. Workflow e RAG arriveranno nelle lezioni successive.
-- Niente interfacce grafiche o framework non concordati.
+- Implementare solo i requisiti concordati, uno strumento o uno step alla volta: non anticipare
+  quelli successivi. RAG e altri workflow arriveranno nelle lezioni successive.
+- Interfaccia grafica ammessa: il front-end web di chat (step 8), con tecnologia concordata nella
+  sua specifica. Niente framework non concordati.
 - Servizi esterni (per esempio API pubbliche via HTTP) ammessi solo se concordati per uno
-  strumento; nessuna credenziale nel codice o in Git.
-- Persistenza su disco ammessa solo per i dati dello strumento che la richiede (le note
-  persistenti, su SQLite); la cronologia della conversazione resta solo in memoria.
+  strumento o uno step; nessuna credenziale nel codice o in Git.
+- Persistenza su disco ammessa per i dati delle note (SQLite) e per chat e messaggi salvati dal
+  back-end in un database (step 7, tecnologia concordata nella sua specifica). La cronologia
+  della CLI resta solo in memoria.
 - Lavorare solo dentro `Es.1/L4`. La repository contiene altre lezioni:
   non leggerle per copiarne il codice e non modificarle.
 
 ## Scelte tecniche
 - Python, codice sincrono e moduli piccoli, con una separazione semplice tra
-  grafo, collegamento al modello, strumenti e interfaccia da terminale.
+  grafo, collegamento al modello, strumenti e interfacce (CLI e, dagli step 6-8, API HTTP,
+  back-end e front-end).
 - LM Studio sull'host, raggiunto tramite la sua API compatibile con OpenAI.
 - Indirizzo del server e identificativo del modello solo da variabili d'ambiente.
   L'identificativo è quello restituito dal server (`GET /v1/models`), mai inventato.
