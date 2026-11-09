@@ -6,8 +6,11 @@ comandi; i test elencati per nome sono quelli raccolti da pytest.
 ## Sessione del 2026-11-09 (14) — commit `1c5962b`
 
 Router, step 1 della lezione 6 (spec `2026-11-09-router-design.md`, piano Task 1-6, branch
-`feat/router`, esecuzione Native). **LM Studio spento per tutta la sessione**: spike, prove reali,
-serie e checklist Docker non eseguiti (vedi «Resta da provare»).
+`feat/router`, esecuzione Native). LM Studio spento fino al pomeriggio: Task 2-5 scritti e
+verificati senza modello, spike eseguito dopo (ruling nel ledger). Modello delle prove con LM
+Studio: `google/gemma-4-e4b`, scelto dall'utente (il `.env` indica `google/gemma-4-e2b`; nelle prove
+`LMSTUDIO_MODEL` è passata nell'ambiente del comando). Il server di LM Studio era fermo con l'app
+aperta: avviato con `lms server start --port 1234`.
 
 | Verifica | Ambiente | Comando | Esito |
 |---|---|---|---|
@@ -16,6 +19,8 @@ serie e checklist Docker non eseguiti (vedi «Resta da provare»).
 | File dell'ambito mancante | venv locale | `python -m assistente` con `AMBITO_PATH=manca.md` | `Configurazione non valida: AMBITO_PATH non leggibile: 'manca.md' ([Errno 2] No such file or directory: 'manca.md')`, uscita 2 |
 | File dell'ambito vuoto | venv locale | `python -m assistente` con `AMBITO_PATH` = un file di soli spazi | `Configurazione non valida: AMBITO_PATH vuoto: '…'`, uscita 2 |
 | Ambito predefinito | venv locale, LM Studio spento | `python -m assistente` | configurazione accettata; `LM Studio non raggiungibile a http://127.0.0.1:1234/v1: …`, uscita 1 |
+| Spike del `response_format` (Task 1) | venv locale, `google/gemma-4-e4b` | script usa e getta nella scratchpad con `create_router_model` e `Router`, 6 domande | 6 su 6 JSON con le sole chiavi `categoria` e `motivo`, categorie giuste (3 in ambito, 3 fuori ambito), nessun HTTP 400; da 43,0 a 63,1 s per domanda (dettagli nella spec §9) |
+| Tempi con e senza schema | come sopra | stessa domanda (carbonara), due volte con e due senza `response_format` | con schema 43,7 e 41,4 s, senza 44,7 e 44,4 s; sempre 398 token in ingresso e 276 in uscita; senza schema il JSON arriva in un blocco di codice Markdown |
 | `ambito.md` nell'immagine | container `assistente` | `docker compose run --rm -T --build assistente python -c "from assistente.config import load_settings; print(repr(load_settings().ambito[:45]))"` | `"# Ambito dell'assistente del laboratorio\n\nRie"` |
 
 Test nuovi, ciascun gruppo visto fallire prima del codice: 7 in `tests/test_config.py` (ambito
@@ -32,9 +37,8 @@ temporanea.
 
 ### Resta da provare
 
-- Spike del `response_format` con `google/gemma-4-e2b` (Task 1): LM Studio accetta lo schema e
-  gemma lo rispetta?
-- Prove reali con LM Studio e i servizi giorni e catalogo avviati: atteso 10 passed.
+- Prove reali con LM Studio e i servizi giorni e catalogo avviati: atteso 10 passed (in corso con
+  `google/gemma-4-e4b`).
 - Serie del router (spec §7.2 punto 3): 6 domande in ambito e 4 fuori ambito; criterio 0 falsi
   rifiuti e almeno 3 rifiuti su 4.
 - Checklist Docker: «Dammi la ricetta della carbonara» → rifiuto, senza righe `→ modello`.

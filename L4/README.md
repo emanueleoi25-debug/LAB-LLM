@@ -117,7 +117,12 @@ strumenti: lo fa l'agente, come prima. I messaggi del router non entrano nella c
 - Risposta del router non utilizzabile (JSON non valido, categoria sconosciuta, motivo vuoto…): la
   domanda va all'agente, con un avviso nel log.
 
-Ogni domanda costa quindi una chiamata in più al modello. Righe di log del router (formato):
+Ogni domanda costa quindi una chiamata in più al modello. Con `google/gemma-4-e4b` il router ha
+richiesto da 41 a 63 s per domanda il 2026-11-09: il modello produce circa 276 token per un JSON di
+circa 40, probabilmente un ragionamento nascosto; lo schema non rallenta (stessi tempi senza). Senza
+schema gemma racchiude il JSON in un blocco di codice, che il router non accetterebbe.
+
+Righe di log del router (formato):
 
 ```
 INFO assistente.graph: router: categoria=conversazione motivo=<motivo del router>
