@@ -2,6 +2,8 @@
 
 Chat da terminale in Python che organizza il flusso in un grafo LangGraph esplicito e usa un
 modello servito da LM Studio sull'host. La cronologia vale per la sessione e si perde all'uscita.
+Prima dell'agente un router decide se la domanda rientra nell'ambito dell'assistente: le domande
+fuori ambito ricevono un rifiuto senza raggiungere l'agente.
 Progetto del corso «Deep Learning e LLM: costruire chatbot e agenti» (lezione L4).
 
 ## Requisiti
@@ -38,6 +40,7 @@ Le variabili d'ambiente hanno la precedenza su `.env`, che resta fuori da Git.
 | `GIORNI_BASE_URL` | sì | — | indirizzo del servizio giorni, es. `http://127.0.0.1:8000`: con `localhost` Windows prova prima `::1`, dove uvicorn non ascolta, e ogni chiamata costa circa 2 s in più (in Docker lo imposta `compose.yaml`) |
 | `CATALOGO_BASE_URL` | sì | — | indirizzo del servizio catalogo, es. `http://127.0.0.1:8001` (in Docker lo imposta `compose.yaml`) |
 | `NOTE_DB_PATH` | sì | — | file SQLite delle note, es. `dati/note.db`, relativo alla cartella da cui avvii l'app (in Docker lo imposta `compose.yaml`) |
+| `AMBITO_PATH` | no | `ambito.md` | file con la descrizione dell'ambito usata dal router, relativo alla cartella da cui avvii l'app (vedi [Router](#router-domande-fuori-ambito)) |
 | `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non indica una città (nome IANA) |
 | `MAX_TOOL_STEPS` | no | `3` | giri modello→strumenti consentiti per ogni domanda (intero ≥ 1) |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
@@ -76,12 +79,58 @@ note invece non va avviato a mano: lo avvia l'applicazione (vedi
 All'avvio l'applicazione controlla che LM Studio risponda e che il modello configurato sia
 disponibile; altrimenti termina con codice 1 e un messaggio che riporta l'indirizzo e i modelli
 disponibili. Poi legge gli strumenti dal server delle note: se il server non parte termina con
-codice 1 e `Server MCP delle note non avviabile: …`. Una variabile mancante o non valida fa
-terminare con codice 2.
+codice 1 e `Server MCP delle note non avviabile: …`. Una variabile mancante o non valida, o un
+file dell'ambito mancante, illeggibile o vuoto, fa terminare con codice 2.
 
 Scrivi una domanda dopo `Tu>`. Per uscire: `esci`, `exit`, Ctrl+C oppure Ctrl+Z seguito da Invio
 (Ctrl+D su Linux/macOS). Se il modello non risponde durante la sessione, la domanda viene scartata
 e si può riprovare.
+
+## Router: domande fuori ambito
+
+Ogni domanda passa prima dal nodo `router`, che chiede allo stesso modello di LM Studio, con un
+prompt di sistema proprio, se la domanda rientra nell'ambito dell'assistente. Il grafo è:
+
+```
+START → router ─┬─ conversazione (anche risposta non utilizzabile) → agente ─┬─ nessuna chiamata → END
+                │                                                            ├─ chiamata, entro il limite → strumenti → agente
+                │                                                            └─ chiamata, oltre il limite → limite → END
+                └─ fuori_ambito → rifiuto → END
+```
+
+L'ambito è descritto in [`ambito.md`](ambito.md), nella cartella del progetto (o nel file indicato
+da `AMBITO_PATH`): ora e fusi, unità di misura, calcoli, date e scadenze, inventario, note, domande
+sul laboratorio e sull'assistente, saluti e domande sulla conversazione in corso. Tutto il resto è
+fuori ambito, comprese per ora le domande sul meteo. Per cambiare l'ambito basta modificare il file
+e riavviare l'applicazione, senza toccare il codice.
+
+Il router riceve la domanda e gli ultimi 4 messaggi di testo tra utente e assistente (non le
+chiamate agli strumenti), così una domanda come «e a Tokyo?» viene giudicata insieme a quella
+precedente. Risponde con un JSON vincolato da uno schema (`response_format` di LM Studio, con
+`temperature=0`): `categoria` (`conversazione` o `fuori_ambito`) e `motivo`. Non sceglie gli
+strumenti: lo fa l'agente, come prima. I messaggi del router non entrano nella cronologia.
+
+- In ambito: la domanda va all'agente.
+- Fuori ambito: il nodo `rifiuto` risponde sempre «Posso aiutarti solo con il laboratorio: ora e
+  fusi orari, unità di misura, calcoli, date e scadenze, inventario e note. Questa domanda è fuori
+  dal mio ambito.» L'agente non viene eseguito; domanda e rifiuto restano nella cronologia.
+- Risposta del router non utilizzabile (JSON non valido, categoria sconosciuta, motivo vuoto…): la
+  domanda va all'agente, con un avviso nel log.
+
+Ogni domanda costa quindi una chiamata in più al modello. Righe di log del router (formato):
+
+```
+INFO assistente.graph: router: categoria=conversazione motivo=<motivo del router>
+INFO assistente.graph: router → agente
+INFO assistente.graph: router: categoria=fuori_ambito motivo=<motivo del router>
+INFO assistente.graph: router → rifiuto
+INFO assistente.graph: rifiuto: domanda fuori ambito, agente non eseguito
+WARNING assistente.graph: router: risposta non utilizzabile (JSON non valido), la domanda passa all'agente: <risposta grezza>
+```
+
+Nel percorso fuori ambito non compaiono righe `→ modello` o `← modello`: è il segno che l'agente
+non è stato eseguito. Con `LOG_LEVEL=DEBUG` compaiono anche i messaggi mandati al router
+(`→ router [sistema] …`, `→ router [utente] …`).
 
 ## Strumento orologio, log e limite di passaggi
 
@@ -518,7 +567,8 @@ docker compose stop catalogo
 ```
 
 L'immagine dell'applicazione contiene solo i pacchetti `assistente`, `servizio_giorni`,
-`servizio_catalogo` e `servizio_note` e le dipendenze: niente `.env`, test o `pytest`.
+`servizio_catalogo` e `servizio_note`, il file `ambito.md` e le dipendenze: niente `.env`, test o
+`pytest`. Per cambiare l'ambito in Docker va ricostruita l'immagine (`--build`).
 
 Per controllare che il container raggiunga LM Studio:
 
@@ -540,15 +590,17 @@ Gli stessi test su Python 3.14, nel container:
 docker compose --profile test run --rm --build test
 ```
 
-I test automatici non richiedono LM Studio: il modello è sostituito da uno stub. Le prove reali
-risultano `skipped`. Il server delle note è provato in-process; solo `tests/test_note_stdio.py` e
+I test automatici non richiedono LM Studio: il modello è sostituito da uno stub, anche per il
+router (risposte del router simulate per entrambi i percorsi e per una risposta non utilizzabile).
+Le prove reali risultano `skipped`. Il server delle note è provato in-process; solo `tests/test_note_stdio.py` e
 alcuni test di `tests/test_mcp_client.py` avviano un sottoprocesso (qualche secondo).
 
 ### Prove reali con LM Studio
 
 Con LM Studio attivo, `.env` configurato e i servizi giorni e catalogo avviati (le prove su
 `date_info` e `search_catalog` falliscono con «servizio giorni non avviato» o «servizio catalogo
-non avviato» se il servizio non risponde):
+non avviato» se il servizio non risponde). Tutte le prove passano anche dal router; due lo
+provano direttamente (una domanda in ambito e una fuori ambito):
 
 ```powershell
 $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:RUN_LMSTUDIO_TESTS
@@ -560,7 +612,7 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
    `docker compose --profile test run --rm --build test` (tutti passed, le prove reali skipped).
 2. Prove reali con LM Studio (comando sopra, con i servizi giorni e catalogo avviati): risposta,
    memoria della sessione, uso dell'orologio, del convertitore, della calcolatrice, di `date_info`,
-   di `search_catalog` e delle note (8 passed).
+   di `search_catalog` e delle note, router in ambito e fuori ambito (10 passed).
 3. In Docker, `docker compose run --rm assistente`:
    - «Che ore sono a Miami?» → su stderr compaiono `← modello [chiamata] get_current_time
      {'city': 'Miami'}` e un risultato con `America/New_York`; la risposta è coerente con l'ora
@@ -589,6 +641,8 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
    - «Annota che il banco 3 ha la presa rotta» → `← modello [chiamata] add_note` e `Nota … salvata:`;
      `esci`, nuovo avvio e «Quali note ho?» → `← modello [chiamata] list_notes` e la nota nel
      risultato e nella risposta.
+   - «Dammi la ricetta della carbonara» → su stderr `router: categoria=fuori_ambito …`,
+     `router → rifiuto` e nessuna riga `→ modello`; la risposta è il testo fisso del rifiuto.
 
    Con `docker compose run` i servizi `giorni` e `catalogo` partono da soli; alla fine
    `docker compose stop giorni catalogo`.
@@ -622,6 +676,10 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `risultato strumento: Errore: categoria '…' inesistente. Categorie valide: …` | il modello ha passato una categoria che non c'è nell'inventario | nessuna azione: il modello riceve l'elenco delle categorie e può riprovare |
 | `Errore: risposta non valida dal servizio catalogo (HTTP …)` | il servizio ha risposto con un codice o un testo inatteso, oppure `CATALOGO_BASE_URL` indica un altro servizio | controlla `CATALOGO_BASE_URL` e i log nel terminale di uvicorn |
 | `CATALOGO_BASE_URL mancante` (codice 2) | manca la variabile in `.env` (per esempio un `.env` creato prima del catalogo) | aggiungi `CATALOGO_BASE_URL=http://127.0.0.1:8001` (vedi `.env.example`) |
+| `AMBITO_PATH non leggibile: '…'` (codice 2) | il file dell'ambito non esiste nella cartella da cui avvii l'app, `AMBITO_PATH` indica una cartella o il file non è in UTF-8 | avvia dalla cartella `Es.1/L4` (dove c'è `ambito.md`) o correggi `AMBITO_PATH`; salva il file in UTF-8 |
+| `AMBITO_PATH vuoto: '…'` (codice 2) | il file dell'ambito è vuoto o contiene solo spazi | scrivi la descrizione dell'ambito (vedi `ambito.md`) |
+| `Assistente> Posso aiutarti solo con il laboratorio: …` per una domanda che dovrebbe essere accettata | il router l'ha giudicata fuori ambito; il motivo è nella riga `router: categoria=fuori_ambito motivo=…` | aggiungi l'argomento o un esempio in `ambito.md` e riavvia (in Docker con `--build`) |
+| `WARNING … router: risposta non utilizzabile (…)` | il modello non ha risposto con il JSON previsto; la domanda è passata comunque all'agente | nessuna azione se è occasionale; se si ripete, controlla nel log di LM Studio che il modello supporti lo schema JSON (`response_format`) |
 | `NOTE_DB_PATH mancante` (codice 2) | manca la variabile in `.env` (per esempio un `.env` creato prima delle note) | aggiungi `NOTE_DB_PATH=dati/note.db` (vedi `.env.example`) |
 | `Server MCP delle note non avviabile: …` (codice 1) | il server delle note non parte: per esempio dipendenze non installate (`mcp`) o file di `servizio_note/` mancanti; sopra il messaggio compare di solito l'errore del server | `python -m pip install -r requirements-dev.txt`; prova `python -c "import servizio_note.server"` dalla cartella `Es.1/L4` |
 | `risultato strumento: Errore: archivio delle note non utilizzabile (…)` | `NOTE_DB_PATH` indica una cartella, un percorso non scrivibile o un file che non è un database SQLite | correggi `NOTE_DB_PATH`; in Docker il volume `note` deve essere montato su `/app/dati` |

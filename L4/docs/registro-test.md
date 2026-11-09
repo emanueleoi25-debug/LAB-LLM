@@ -3,6 +3,43 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-09 (14) — commit `1c5962b`
+
+Router, step 1 della lezione 6 (spec `2026-11-09-router-design.md`, piano Task 1-6, branch
+`feat/router`, esecuzione Native). **LM Studio spento per tutta la sessione**: spike, prove reali,
+serie e checklist Docker non eseguiti (vedi «Resta da provare»).
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello, su `1c5962b` | venv locale, Python 3.13 | `python -m pytest` | 562 passed, 10 skipped (le prove reali, comprese le 2 nuove del router) |
+| Suite senza modello, su `1c5962b` | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 562 passed, 10 skipped |
+| File dell'ambito mancante | venv locale | `python -m assistente` con `AMBITO_PATH=manca.md` | `Configurazione non valida: AMBITO_PATH non leggibile: 'manca.md' ([Errno 2] No such file or directory: 'manca.md')`, uscita 2 |
+| File dell'ambito vuoto | venv locale | `python -m assistente` con `AMBITO_PATH` = un file di soli spazi | `Configurazione non valida: AMBITO_PATH vuoto: '…'`, uscita 2 |
+| Ambito predefinito | venv locale, LM Studio spento | `python -m assistente` | configurazione accettata; `LM Studio non raggiungibile a http://127.0.0.1:1234/v1: …`, uscita 1 |
+| `ambito.md` nell'immagine | container `assistente` | `docker compose run --rm -T --build assistente python -c "from assistente.config import load_settings; print(repr(load_settings().ambito[:45]))"` | `"# Ambito dell'assistente del laboratorio\n\nRie"` |
+
+Test nuovi, ciascun gruppo visto fallire prima del codice: 7 in `tests/test_config.py` (ambito
+predefinito, percorso, BOM, file mancante, cartella, file non UTF-8, file vuoto); 17 in
+`tests/test_router.py` (decisioni valide, 10 risposte non utilizzabili, contenuto non testuale,
+prompt e ambito, contesto degli ultimi 4 messaggi, contesto vuoto); 1 in `tests/test_model.py`
+(modello del router con schema, `temperature=0`, senza strumenti); 8 in `tests/test_graph.py`
+(nodi, in ambito, fuori ambito senza agente, risposta non utilizzabile, cronologia, ciclo strumenti
+e limite dopo il router, rifiuto seguito da una domanda in ambito); 2 in `tests/test_cli.py`
+(`create_graph` con il router, errore del router che scarta la domanda); 2 prove reali in
+`tests/integration/test_lmstudio.py` (skipped). I due test sui nomi dei nodi passano da `modello` ad
+`agente`; `test_environment_wins_over_dotenv` crea un `ambito.md` di prova nella cartella
+temporanea.
+
+### Resta da provare
+
+- Spike del `response_format` con `google/gemma-4-e2b` (Task 1): LM Studio accetta lo schema e
+  gemma lo rispetta?
+- Prove reali con LM Studio e i servizi giorni e catalogo avviati: atteso 10 passed.
+- Serie del router (spec §7.2 punto 3): 6 domande in ambito e 4 fuori ambito; criterio 0 falsi
+  rifiuti e almeno 3 rifiuti su 4.
+- Checklist Docker: «Dammi la ricetta della carbonara» → rifiuto, senza righe `→ modello`.
+- Esempio di log reale del router nel README (oggi il README riporta il formato delle righe).
+
 ## Sessione del 2026-11-08 (13) — commit `9cef1c5`
 
 Note persistenti (spec `2026-11-08-note-persistenti-design.md`, piano Task 1-6, branch

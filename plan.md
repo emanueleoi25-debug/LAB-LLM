@@ -3472,6 +3472,13 @@ Approvato il 2026-11-09 (esecuzione: Native, revisione finale opus).
 Spec: `L4/docs/superpowers/specs/2026-11-09-router-design.md`.
 Fonte: `L4/docs/superpowers/plans/2026-11-09-router.md`.
 
+**Stato (2026-11-09):** Task 2-4 completati e Task 5 senza prove reali su `feat/router` (`961ee95`
+ambito, `dcb7126` router e modello del router, `8111dfb` nodi `router` e `rifiuto`, `1c5962b`
+collegamento e prove reali). Suite 562 passed / 10 skipped su 3.13 e 3.14.9. Documentazione
+aggiornata. LM Studio spento: restano spike (Task 1), prove reali (Task 5, attese 10), serie e
+checklist Docker (Task 6), poi la revisione finale. Ruling: spike rinviato a LM Studio acceso, prima
+delle prove reali.
+
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

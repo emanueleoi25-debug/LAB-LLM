@@ -52,16 +52,21 @@ manuali durante lo sviluppo.
 
 ## Struttura e comandi
 - Pacchetto `assistente/`: `config.py` (variabili d'ambiente, `GIORNI_BASE_URL`,
-  `CATALOGO_BASE_URL` e `NOTE_DB_PATH` obbligatorie),
+  `CATALOGO_BASE_URL` e `NOTE_DB_PATH` obbligatorie, `AMBITO_PATH` facoltativa),
   `tools.py` (orologio, convertitore, calcolatrice), `dates.py` (strumenti delle date, client HTTP
   del servizio giorni), `catalog.py` (strumenti del catalogo, client HTTP del servizio catalogo),
   `mcp_client.py` (client MCP generico: strumenti da `list_tools`, una sessione stdio per
   chiamata), `notes.py` (strumenti delle note, parametri del sottoprocesso del server delle note),
   `units.py` (tabella delle unità e conversione), `arithmetic.py` (analisi e calcolo
   sicuro delle espressioni aritmetiche),
-  `cities.py` (ricerca città → fuso su archivio locale), `graph.py` (stato, nodi, instradamento,
-  log dei messaggi al modello), `model.py` (collegamento a LM Studio), `cli.py` (ciclo da
+  `cities.py` (ricerca città → fuso su archivio locale), `graph.py` (stato, nodi `router`,
+  `agente`, `strumenti`, `limite` e `rifiuto`, instradamento, log dei messaggi al modello),
+  `router.py` (prompt, contesto e lettura validata della decisione del router), `model.py`
+  (collegamento a LM Studio: modello dell'agente con gli strumenti e modello del router con
+  schema JSON), `cli.py` (ciclo da
   terminale, cronologia, log), `__main__.py` (`python -m assistente`).
+- `ambito.md`: descrizione dell'ambito dell'assistente usata dal router (versionata; percorso
+  cambiabile con `AMBITO_PATH`).
 - Servizio `servizio_giorni/` (FastAPI, indipendente da `assistente/`): `calendario.py`, `app.py`,
   `festivita.json` (festività nazionali 2020-2040). Avvio locale in un secondo terminale:
   `python -m uvicorn servizio_giorni.app:app --port 8000`.
