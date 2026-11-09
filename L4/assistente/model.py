@@ -8,6 +8,7 @@ from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 
 from assistente.config import Settings
+from assistente.router import DECISION_SCHEMA
 
 # LM Studio non richiede una chiave, ma il client OpenAI ne vuole una.
 API_KEY = "lm-studio"
@@ -44,3 +45,14 @@ def check_model(
 def create_chat_model(settings: Settings, tools: Sequence[BaseTool] = ()) -> Runnable:
     model = ChatOpenAI(base_url=settings.base_url, api_key=API_KEY, model=settings.model)
     return model.bind_tools(tools) if tools else model
+
+
+def create_router_model(settings: Settings) -> Runnable:
+    """Modello del router: stesso server e modello, nessuno strumento, risposta JSON vincolata."""
+    model = ChatOpenAI(base_url=settings.base_url, api_key=API_KEY, model=settings.model, temperature=0)
+    return model.bind(
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": "decisione_router", "strict": True, "schema": DECISION_SCHEMA},
+        }
+    )

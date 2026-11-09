@@ -4,7 +4,8 @@ import pytest
 from langchain_openai import ChatOpenAI
 
 from assistente.config import Settings
-from assistente.model import ModelCheckError, check_model, create_chat_model
+from assistente.model import ModelCheckError, check_model, create_chat_model, create_router_model
+from assistente.router import DECISION_SCHEMA
 from assistente.tools import make_clock_tool
 
 
@@ -42,3 +43,13 @@ def test_create_chat_model_uses_settings():
 def test_create_chat_model_binds_clock_tool():
     bound = create_chat_model(settings(), [make_clock_tool("Europe/Rome")])
     assert bound.kwargs["tools"][0]["function"]["name"] == "get_current_time"
+
+
+def test_router_model_uses_schema_and_zero_temperature():
+    bound = create_router_model(settings())
+    assert bound.kwargs["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "decisione_router", "strict": True, "schema": DECISION_SCHEMA},
+    }
+    assert "tools" not in bound.kwargs
+    assert bound.bound.temperature == 0 and bound.bound.model_name == "google/gemma-4-e2b"
