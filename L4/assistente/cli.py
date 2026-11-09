@@ -14,8 +14,9 @@ from assistente.config import ConfigError, Settings, load_settings
 from assistente.dates import make_date_tools
 from assistente.graph import build_graph
 from assistente.mcp_client import MCPStartupError
-from assistente.model import ModelCheckError, check_model, create_chat_model
+from assistente.model import ModelCheckError, check_model, create_chat_model, create_router_model
 from assistente.notes import make_note_tools
+from assistente.router import Router
 from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
 
 SYSTEM_PROMPT = (
@@ -122,9 +123,10 @@ def make_tools(settings: Settings) -> list[BaseTool]:
 
 
 def create_graph(settings: Settings):
-    """Grafo dell'applicazione: modello di LM Studio con i suoi strumenti."""
+    """Grafo dell'applicazione: router e agente sullo stesso modello di LM Studio, con gli strumenti."""
     tools = make_tools(settings)
-    return build_graph(create_chat_model(settings, tools), tools, settings.max_tool_steps)
+    router = Router(create_router_model(settings), settings.ambito)
+    return build_graph(create_chat_model(settings, tools), tools, settings.max_tool_steps, router=router)
 
 
 def main() -> int:

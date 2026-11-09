@@ -10,10 +10,11 @@ from langchain_core.tools import StructuredTool
 import assistente.cli as cli
 import servizio_note.server
 from assistente import notes
-from assistente.cli import SYSTEM_PROMPT, configure_logging, main, make_tools, run_chat
+from assistente.cli import SYSTEM_PROMPT, configure_logging, create_graph, main, make_tools, run_chat
 from assistente.config import Settings
 from assistente.mcp_client import MCPStartupError
 from assistente.graph import build_graph
+from assistente.router import Router
 from tests.fakes import ScriptedModel
 
 
@@ -210,3 +211,19 @@ def test_main_exits_when_notes_server_fails(monkeypatch, capsys):
 
 def test_failure_hints_match():
     assert notes.NOTE_FAILURE_HINT == servizio_note.server.NOTE_FAILURE_HINT
+
+
+def test_create_graph_starts_with_router(monkeypatch):
+    monkeypatch.setattr(cli, "make_note_tools", fake_note_tools)
+    graph = create_graph(Settings(base_url="http://localhost:1234/v1", model="m", ambito="A"))
+    assert {"router", "rifiuto", "agente"} <= set(graph.get_graph().nodes)
+
+
+def test_router_error_discards_question_and_continues():
+    ok = AIMessage('{"categoria": "conversazione", "motivo": "m"}')
+    router = Router(ScriptedModel([RuntimeError("risposta troncata"), ok]), "A")
+    out, errs = io.StringIO(), io.StringIO()
+    run_chat(build_graph(ScriptedModel([AIMessage("ok")]), router=router),
+             input_fn=inputs("prima", "seconda", "esci"), output=out, errors=errs)
+    assert "risposta troncata" in errs.getvalue() and "Domanda scartata" in errs.getvalue()
+    assert "Assistente> ok" in out.getvalue()

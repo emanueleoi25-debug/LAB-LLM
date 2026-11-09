@@ -1,6 +1,7 @@
 """Prove reali con LM Studio: si attivano solo con RUN_LMSTUDIO_TESTS=1."""
 
 import dataclasses
+import logging
 import os
 import re
 
@@ -10,6 +11,7 @@ from langchain_core.messages import ToolMessage
 
 from assistente.cli import ask, create_graph, new_history
 from assistente.config import load_settings
+from assistente.graph import REFUSAL_REPLY
 from assistente.model import check_model
 
 pytestmark = [
@@ -95,3 +97,17 @@ def test_real_model_uses_notes(tmp_path):
     listed = [m.content for m in history if isinstance(m, ToolMessage) and m.name == "list_notes"]
     assert any("presa" in r for r in listed), listed
     assert "presa" in reply, reply
+
+
+def test_real_router_passes_in_scope_question(graph, caplog):
+    caplog.set_level(logging.INFO)
+    history, reply = ask(graph, new_history(), "Che ore sono a Tokyo?")
+    assert "router: categoria=conversazione" in caplog.text and "router → agente" in caplog.text
+    assert any(isinstance(m, ToolMessage) and m.name == "get_current_time" for m in history)
+
+
+def test_real_router_refuses_out_of_scope_question(graph, caplog):
+    caplog.set_level(logging.INFO)
+    _, reply = ask(graph, new_history(), "Dammi la ricetta della carbonara")
+    assert reply == REFUSAL_REPLY
+    assert "router: categoria=fuori_ambito" in caplog.text and "→ modello" not in caplog.text
