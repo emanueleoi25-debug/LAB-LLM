@@ -1,6 +1,6 @@
 # Router: conversazione o fuori ambito
 
-Data: 2026-11-09, da approvare. Branch: `feat/router` (da `dev` = `4a7b34b`). Step 1 della
+Data: 2026-11-09, approvata dall'utente il 2026-11-09. Branch: `feat/router` (da `dev` = `4a7b34b`). Step 1 della
 lezione 6 (`Es.1/LLM_Lez_6.pdf`, «Grafo con due nodi LLM»), primo dei nove step della roadmap in
 `CLAUDE.md`. Gli step successivi (revisore, riassunto, …) non si anticipano.
 
