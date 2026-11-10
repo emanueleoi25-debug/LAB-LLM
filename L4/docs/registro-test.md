@@ -3,7 +3,7 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
-## Sessione del 2026-11-09 (14) — commit `1c5962b`
+## Sessione del 2026-11-09 (14) — commit `1c5962b`, prove reali rieseguite il 2026-11-10 su `338be08`
 
 Router, step 1 della lezione 6 (spec `2026-11-09-router-design.md`, piano Task 1-6, branch
 `feat/router`, esecuzione Native). LM Studio spento fino al pomeriggio: Task 2-5 scritti e
@@ -35,14 +35,41 @@ e limite dopo il router, rifiuto seguito da una domanda in ambito); 2 in `tests/
 `agente`; `test_environment_wins_over_dotenv` crea un `ambito.md` di prova nella cartella
 temporanea.
 
+Il 2026-11-09 le prove reali sono state fermate su richiesta dell'utente dopo 6 passed su 10;
+rieseguite tutte da capo il 2026-11-10, su `338be08`, con `google/gemma-4-e4b`:
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Prove reali | venv locale, servizi giorni e catalogo avviati con uvicorn, archivio delle note temporaneo | `RUN_LMSTUDIO_TESTS=1 LMSTUDIO_MODEL=google/gemma-4-e4b CATALOGO_BASE_URL=http://127.0.0.1:8001 NOTE_DB_PATH=<file temporaneo> ./.venv/Scripts/python.exe -m pytest -m lmstudio -v` | 10 passed in 902,50 s (le 8 esistenti, ora dal router, e le 2 del router) |
+| Suite senza modello | venv locale, Python 3.13 | `./.venv/Scripts/python.exe -m pytest -q` | 562 passed, 10 skipped |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 562 passed, 10 skipped |
+| Serie del router (spec §7.2 punto 3) | venv locale, come le prove reali | script usa e getta nella scratchpad con `create_graph(load_settings())`, cronologia nuova per ogni domanda salvo i seguiti | 0 falsi rifiuti sulle 8 domande in ambito (6 più i 2 seguiti «Come mi chiamo?» e «E a Tokyo?»), 4 rifiuti su 4 fuori ambito: criterio rispettato; da 34 a 152 s per domanda (router e agente) |
+| Checklist Docker, fuori ambito | container `assistente` | `"Dammi la ricetta della carbonara", "esci" \| docker compose run --rm -T --build -e LMSTUDIO_MODEL=google/gemma-4-e4b assistente` (PowerShell), poi `docker compose stop giorni catalogo` | `router: categoria=fuori_ambito motivo=Le ricette rientrano in ambiti esterni all'assistente del laboratorio.`, `router → rifiuto`, `rifiuto: domanda fuori ambito, agente non eseguito`; risposta `REFUSAL_REPLY`; nessuna riga `→ modello` o `← modello` |
+| Checklist Docker, in ambito | come sopra | `"Che ore sono a Tokyo?", "esci" \| docker compose run --rm -T -e LMSTUDIO_MODEL=google/gemma-4-e4b assistente` | `router: categoria=conversazione …`, `router → agente`, `← modello [chiamata] get_current_time {'city': 'Tokyo'}`; risposta «Attualmente sono le 17:55 a Tokyo (fuso Asia/Tokyo).» |
+
+Risposte della serie e motivi del router:
+
+| Domanda | Categoria | Risposta (inizio) |
+|---|---|---|
+| Ciao! | conversazione | «Ciao! Come posso aiutarti oggi nel laboratorio?» |
+| Mi chiamo Luca → Come mi chiamo? | conversazione, conversazione | «Ti chiami Luca.» |
+| Quanti pollici sono 30 centimetri? | conversazione | «30 centimetri sono pari a 11.81 pollici.» |
+| Che ore sono a Miami? → E a Tokyo? | conversazione, conversazione («continua la conversazione precedente») | 03:44 a Miami (America/New_York), 17:45 a Tokyo (Asia/Tokyo) |
+| C'è un oscilloscopio in laboratorio? | conversazione | LAB-002 e LAB-024, Armadio A, ripiano 2 |
+| Che cosa sai fare? | conversazione | elenco delle capacità (152 s, la più lenta) |
+| Dammi la ricetta della carbonara | fuori_ambito («Le ricette non rientrano nell'ambito…») | rifiuto fisso |
+| Scrivi una poesia sul mare | fuori_ambito | rifiuto fisso |
+| Chi ha vinto la battaglia di Waterloo? | fuori_ambito («di natura storica») | rifiuto fisso |
+| Che farmaco prendo per il mal di testa? | fuori_ambito («consigli medici») | rifiuto fisso |
+
+Osservazione: nel log della checklist la prima domanda passata da PowerShell con la pipe arriva con
+un BOM iniziale (`→ modello [utente] ﻿Che ore sono a Tokyo?`); router e agente hanno
+risposto correttamente.
+
 ### Resta da provare
 
-- Prove reali con LM Studio e i servizi giorni e catalogo avviati: atteso 10 passed (in corso con
-  `google/gemma-4-e4b`).
-- Serie del router (spec §7.2 punto 3): 6 domande in ambito e 4 fuori ambito; criterio 0 falsi
-  rifiuti e almeno 3 rifiuti su 4.
-- Checklist Docker: «Dammi la ricetta della carbonara» → rifiuto, senza righe `→ modello`.
-- Esempio di log reale del router nel README (oggi il README riporta il formato delle righe).
+- Risposta del router non utilizzabile con un modello vero (provata solo con risposte simulate).
+- Checklist da terminale interattivo vero (senza `-T`).
 
 ## Sessione del 2026-11-08 (13) — commit `9cef1c5`
 

@@ -3477,9 +3477,14 @@ ambito, `dcb7126` router e modello del router, `8111dfb` nodi `router` e `rifiut
 collegamento e prove reali). Suite 562 passed / 10 skipped su 3.13 e 3.14.9. Documentazione
 aggiornata. Spike (Task 1, `4ec4626`) con `google/gemma-4-e4b`, scelto dall'utente: 6 su 6 JSON
 validi e categorie giuste, schema senza costo di tempo, circa 45 s per chiamata al router (276 token
-di uscita, probabile ragionamento nascosto; tempo accettato dall'utente). Restano prove reali
-(Task 5, attese 10, in corso con e4b), serie e checklist Docker (Task 6), poi la revisione finale.
-Ruling: spike rinviato a LM Studio acceso, prima delle prove reali.
+di uscita, probabile ragionamento nascosto; tempo accettato dall'utente). Ruling: spike rinviato a
+LM Studio acceso, prima delle prove reali.
+
+**Stato (2026-11-10):** Task 1-6 completati. Prove reali con e4b rieseguite da capo: 10 passed in
+902 s. Serie: 0 falsi rifiuti sulle 8 domande in ambito, 4 rifiuti su 4 fuori ambito (criterio
+rispettato). Checklist Docker: carbonara → rifiuto senza righe `→ modello`; Tokyo → router → agente
+→ `get_current_time`. Suite 562 passed / 10 skipped su 3.13 e 3.14.9. README con estratto reale
+dei log del router. Resta la revisione finale, poi l'ok dell'utente per il merge in `dev`.
 
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

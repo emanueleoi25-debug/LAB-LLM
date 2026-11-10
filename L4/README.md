@@ -122,14 +122,22 @@ richiesto da 41 a 63 s per domanda il 2026-11-09: il modello produce circa 276 t
 circa 40, probabilmente un ragionamento nascosto; lo schema non rallenta (stessi tempi senza). Senza
 schema gemma racchiude il JSON in un blocco di codice, che il router non accetterebbe.
 
-Righe di log del router (formato):
+Righe di log del router, da `docker compose run` con `google/gemma-4-e4b` il 2026-11-10 (domanda in
+ambito «Che ore sono a Tokyo?», poi domanda fuori ambito «Dammi la ricetta della carbonara»):
 
 ```
-INFO assistente.graph: router: categoria=conversazione motivo=<motivo del router>
-INFO assistente.graph: router → agente
-INFO assistente.graph: router: categoria=fuori_ambito motivo=<motivo del router>
-INFO assistente.graph: router → rifiuto
-INFO assistente.graph: rifiuto: domanda fuori ambito, agente non eseguito
+2026-11-10 09:55:15,364 INFO assistente.graph: router: categoria=conversazione motivo=La domanda riguarda l'ora attuale e i fusi orari di una città.
+2026-11-10 09:55:15,365 INFO assistente.graph: router → agente
+2026-11-10 09:55:15,367 INFO assistente.graph: → modello [sistema] Sei l'assistente del laboratorio. …
+...
+2026-11-10 09:53:39,589 INFO assistente.graph: router: categoria=fuori_ambito motivo=Le ricette rientrano in ambiti esterni all'assistente del laboratorio.
+2026-11-10 09:53:39,590 INFO assistente.graph: router → rifiuto
+2026-11-10 09:53:39,592 INFO assistente.graph: rifiuto: domanda fuori ambito, agente non eseguito
+```
+
+Se la risposta del router non è utilizzabile compare invece (formato, non osservato nelle prove):
+
+```
 WARNING assistente.graph: router: risposta non utilizzabile (JSON non valido), la domanda passa all'agente: <risposta grezza>
 ```
 
