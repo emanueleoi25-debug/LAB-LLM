@@ -3488,7 +3488,12 @@ dei log del router. Revisione finale (opus): «Con correzioni», 0 critici, 1 im
 lanciata da `Es.1` dà 8 failed: `AMBITO_PATH` relativo alla cartella corrente nei test), 6 minori
 lasciati. Correzione approvata dall'utente come spec §10 e Task 7 (in fondo al piano in
 `L4/docs/superpowers/plans/2026-11-09-router.md`): `BASE` con `AMBITO_PATH` assoluto, test del
-predefinito con `monkeypatch.chdir`. Merge in `dev` approvato a verifiche verdi.
+predefinito con `monkeypatch.chdir` (`5125353`). Suite 562 passed / 10 skipped da `L4`, da `Es.1`
+e su 3.14.9. **Riunito in `dev` il 2026-11-10** (fast-forward, su ok dell'utente; non pushato).
+Dopo il merge, nei docs: estratto dei log del README diviso nelle due esecuzioni reali, nota sul
+«0/7» della serie nel registro. Minori lasciati: `AMBITO_PATH` non sovrascritto in `compose.yaml`,
+diagnosi dell'HTTP 400 dello schema nel README, BOM invisibile in `test_config.py`, BOM della pipe
+di PowerShell davanti a `esci`.
 
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
