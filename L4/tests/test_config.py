@@ -1,8 +1,11 @@
 import os
+from pathlib import Path
 
 import pytest
 
 from assistente.config import ConfigError, load_settings
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
 
 BASE = {
     "LMSTUDIO_BASE_URL": "http://localhost:1234/v1",
@@ -10,6 +13,8 @@ BASE = {
     "GIORNI_BASE_URL": "http://localhost:8000",
     "CATALOGO_BASE_URL": "http://localhost:8001",
     "NOTE_DB_PATH": "dati/note.db",
+    # Percorso assoluto: la suite non dipende dalla cartella da cui si lancia pytest.
+    "AMBITO_PATH": str(PROJECT_DIR / "ambito.md"),
 }
 
 
@@ -105,8 +110,10 @@ def test_default_timezone_is_validated_and_canonical():
         load_settings({**BASE, "DEFAULT_TIMEZONE": "Marte/Base"})
 
 
-def test_ambito_default_is_project_file():
-    s = load_settings(BASE)
+def test_ambito_default_is_project_file(monkeypatch):
+    monkeypatch.chdir(PROJECT_DIR)
+    env = {k: v for k, v in BASE.items() if k != "AMBITO_PATH"}
+    s = load_settings(env)
     assert s.ambito.startswith("# Ambito dell'assistente del laboratorio")
 
 

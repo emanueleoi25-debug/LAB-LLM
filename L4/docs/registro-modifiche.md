@@ -5,6 +5,33 @@ non era giusto, perché, come è stato risolto, quali alternative sono state sca
 e come è stato verificato. Gli esiti completi delle verifiche sono in
 [`registro-test.md`](registro-test.md).
 
+## 2026-11-10 — La suite falliva se lanciata fuori da `L4`
+
+**Che cosa non era giusto.** Con il router, `python -m pytest L4/tests` lanciato dalla radice della
+repository (o dal runner di un IDE aperto su `Es.1`) dava 8 failed in `tests/test_config.py`, tutti
+con `ConfigError: AMBITO_PATH non leggibile: 'ambito.md'`. Sette di quei test passavano prima del
+router da qualunque cartella.
+
+**Causa.** `load_settings` legge sempre il file dell'ambito; il valore predefinito di `AMBITO_PATH`
+è `ambito.md`, relativo alla cartella corrente (scelta della spec §4.2). Il dizionario `BASE` dei
+test non impostava `AMBITO_PATH`, quindi ogni test che lo usava dipendeva dalla cartella da cui
+partiva pytest.
+
+**Soluzione (spec §10).** Solo nei test: `BASE` imposta `AMBITO_PATH` al percorso assoluto
+dell'`ambito.md` del progetto (`PROJECT_DIR`, ricavato da `__file__`);
+`test_ambito_default_is_project_file` toglie `AMBITO_PATH` e si sposta nella cartella del progetto
+con `monkeypatch.chdir`, così verifica ancora il predefinito relativo.
+
+**Ragionamento.** Trovato dalla revisione finale del router (importante). Il comportamento
+dell'applicazione è quello voluto, il difetto era nell'isolamento dei test. Scartato rendere il
+predefinito relativo alla cartella del pacchetto: cambierebbe la spec e il modo in cui l'utente
+indica un ambito diverso.
+
+**Commit.** `test(config): suite indipendente dalla cartella corrente`.
+
+**Verifica.** Prima della correzione, da `Es.1`: 8 failed, 554 passed, 10 skipped. Dopo: 562 passed,
+10 skipped da `Es.1` e da `L4` (Python 3.13) e nel container `test` (Python 3.14.9).
+
 ## 2026-11-08 — Un id enorme mandava in crash il server delle note
 
 **Che cosa non era giusto.** `delete_note` con un id come `10**30` faceva comparire il traceback

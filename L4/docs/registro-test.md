@@ -66,6 +66,16 @@ Osservazione: nel log della checklist la prima domanda passata da PowerShell con
 un BOM iniziale (`→ modello [utente] ﻿Che ore sono a Tokyo?`); router e agente hanno
 risposto correttamente.
 
+Correzione dopo la revisione finale (spec §10, Task 7, 2026-11-10): la suite lanciata da `Es.1`
+dipendeva dalla cartella corrente per `AMBITO_PATH`.
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite da `Es.1`, prima della correzione | venv locale, Python 3.13 | `L4/.venv/Scripts/python.exe -m pytest L4/tests -q -p no:cacheprovider` | 8 failed (tutti in `test_config.py`, `AMBITO_PATH non leggibile`), 554 passed, 10 skipped |
+| Suite da `Es.1`, dopo | come sopra | come sopra | 562 passed, 10 skipped |
+| Suite da `L4`, dopo | venv locale, Python 3.13 | `./.venv/Scripts/python.exe -m pytest -q` | 562 passed, 10 skipped |
+| Suite, dopo | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 562 passed, 10 skipped |
+
 ### Resta da provare
 
 - Risposta del router non utilizzabile con un modello vero (provata solo con risposte simulate).
