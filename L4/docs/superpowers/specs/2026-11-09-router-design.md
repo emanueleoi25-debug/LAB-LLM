@@ -358,3 +358,22 @@ dall'utente, `google/gemma-4-e4b` (presente in `GET /v1/models`), tramite `creat
   visibili: il modello sembra generare un ragionamento nascosto prima della risposta. Il tempo del
   router (circa 45 s per domanda con LM Studio di oggi) viene da lì e dalla velocità di LM Studio,
   non dallo schema.
+
+## 10. Correzione dopo la revisione finale (2026-11-10, approvata dall'utente)
+
+La revisione finale (opus, `4a7b34b..a5eb56d`) ha trovato un problema importante: la suite dipende
+dalla cartella da cui si lancia pytest. `load_settings` legge sempre `AMBITO_PATH`, il cui valore
+predefinito `ambito.md` è relativo alla cartella corrente (§4.2, voluto), ma il dizionario `BASE` di
+`tests/test_config.py` non imposta `AMBITO_PATH`. Lanciata da `Es.1` (`python -m pytest L4/tests`,
+o dal runner di un IDE aperto sulla radice della repository) la suite dà 8 failed con
+`ConfigError: AMBITO_PATH non leggibile`, sette dei quali in test che prima del router passavano da
+qualunque cartella.
+
+Correzione, solo nei test (il comportamento dell'applicazione non cambia):
+- `BASE` imposta `AMBITO_PATH` al percorso assoluto dell'`ambito.md` del progetto, ricavato da
+  `__file__`;
+- `test_ambito_default_is_project_file` toglie `AMBITO_PATH` da `BASE` e si sposta nella cartella
+  del progetto con `monkeypatch.chdir`: verifica ancora il predefinito relativo.
+
+Criterio: la suite passa sia da `L4` sia da `Es.1`, su Python 3.13 e 3.14. I minori della revisione
+restano nel ledger e non fanno parte di questa correzione.

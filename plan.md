@@ -3484,7 +3484,11 @@ LM Studio acceso, prima delle prove reali.
 902 s. Serie: 0 falsi rifiuti sulle 8 domande in ambito, 4 rifiuti su 4 fuori ambito (criterio
 rispettato). Checklist Docker: carbonara → rifiuto senza righe `→ modello`; Tokyo → router → agente
 → `get_current_time`. Suite 562 passed / 10 skipped su 3.13 e 3.14.9. README con estratto reale
-dei log del router. Resta la revisione finale, poi l'ok dell'utente per il merge in `dev`.
+dei log del router. Revisione finale (opus): «Con correzioni», 0 critici, 1 importante (la suite
+lanciata da `Es.1` dà 8 failed: `AMBITO_PATH` relativo alla cartella corrente nei test), 6 minori
+lasciati. Correzione approvata dall'utente come spec §10 e Task 7 (in fondo al piano in
+`L4/docs/superpowers/plans/2026-11-09-router.md`): `BASE` con `AMBITO_PATH` assoluto, test del
+predefinito con `monkeypatch.chdir`. Merge in `dev` approvato a verifiche verdi.
 
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
