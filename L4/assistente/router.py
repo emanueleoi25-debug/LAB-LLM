@@ -12,7 +12,9 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+
+from assistente.contesto import flat, recent_conversation
 
 if TYPE_CHECKING:
     from assistente.graph import ChatModel
@@ -55,28 +57,13 @@ class Decision:
     grezza: str
 
 
-def _flat(text: str) -> str:
-    return text.replace("\r", " ").replace("\n", " ")
-
-
 def _user_message(messages: list[BaseMessage]) -> str:
     question_index = max(
         (i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=len(messages)
     )
     question = messages[question_index].text if question_index < len(messages) else ""
-    context = [
-        m
-        for m in messages[:question_index]
-        if isinstance(m, HumanMessage) or (isinstance(m, AIMessage) and m.text)
-    ][-CONTEXT_MESSAGES:]
-    if context:
-        lines = [
-            f"{'Utente' if isinstance(m, HumanMessage) else 'Assistente'}: {_flat(m.text)}" for m in context
-        ]
-        recent = "Conversazione recente:\n" + "\n".join(lines)
-    else:
-        recent = "Conversazione recente: (nessuna)"
-    return f"{recent}\n\nDomanda da classificare:\n{_flat(question)}"
+    recent = recent_conversation(messages, question_index, CONTEXT_MESSAGES)
+    return f"{recent}\n\nDomanda da classificare:\n{flat(question)}"
 
 
 def _read(content: object) -> tuple[str, str] | str:
