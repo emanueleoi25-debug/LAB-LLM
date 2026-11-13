@@ -106,7 +106,12 @@ e riavviare l'applicazione, senza toccare il codice.
 
 Il router riceve la domanda e gli ultimi 4 messaggi di testo tra utente e assistente (non le
 chiamate agli strumenti), così una domanda come «e a Tokyo?» viene giudicata insieme a quella
-precedente. Risponde con un JSON vincolato da uno schema (`response_format` di LM Studio, con
+precedente. Una domanda che rimanda a una domanda precedente («rispondi alla domanda di prima»)
+viene giudicata come quella: dopo il rifiuto della carbonara anche il seguito viene rifiutato,
+mentre «Che ore sono a Tokyo?» o «Che cosa ti ho chiesto prima?» passano ancora all'agente
+(prove del 2026-11-13 con `google/gemma-4-e4b`). Limite noto: il router vede solo gli ultimi 4
+messaggi, quindi un rimando a una domanda rifiutata più indietro nella conversazione non viene
+riconosciuto. Risponde con un JSON vincolato da uno schema (`response_format` di LM Studio, con
 `temperature=0`): `categoria` (`conversazione` o `fuori_ambito`) e `motivo`. Non sceglie gli
 strumenti: lo fa l'agente, come prima. I messaggi del router non entrano nella cronologia.
 

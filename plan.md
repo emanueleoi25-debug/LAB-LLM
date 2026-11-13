@@ -4036,3 +4036,12 @@ righe nella sessione di `docs/registro-test.md`.
 git add compose.yaml README.md tests/integration/test_lmstudio.py tests/test-manuali.txt docs/registro-modifiche.md docs/registro-test.md
 git commit -m "fix(docker): AMBITO_PATH fisso nel container, diagnosi dello schema e prova dell'aggiramento"
 ```
+
+**Stato (2026-11-13):** Task 8 completato (esecuzione Native) su `feat/router-minori`: `7ff2cb3`
+frase anti-aggiramento nel prompt del router e BOM tolto dalle righe lette, `8e7e15c`
+`AMBITO_PATH: /app/ambito.md` in `compose.yaml`, diagnosi dello schema e prova reale nuova. Ruling:
+`tests/test-manuali.txt` è ignorato da git, aggiornato solo in locale. Revisione finale (opus):
+«Sì, con correzioni», 1 importante chiuso con la prova della domanda in ambito dopo un rifiuto
+(`dbe5c84`, 4/4 all'agente), 4 minori lasciati (spec §11.6). **Riunito in `dev` (fast-forward) e
+pushato il 2026-11-13** dopo la verifica completa (`01296d5`): suite 565 passed / 11 skipped su
+3.13 e 3.14.9, 11 prove reali in 857 s, checklist Docker verde.

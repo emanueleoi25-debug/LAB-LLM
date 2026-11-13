@@ -447,3 +447,16 @@ Il prompt dell'agente non cambia. Il campione è piccolo: altre formulazioni pos
 
 Criterio: suite verde senza modello; la prova reale nuova passa; in Docker il `.env` non influisce
 su `AMBITO_PATH` e la sequenza di aggiramento riceve due rifiuti fissi.
+
+### 11.6 Esito (2026-11-13)
+
+Criterio rispettato. Task 8 eseguito su `feat/router-minori` (`7ff2cb3`, `8e7e15c`), riunito in
+`dev` e pushato con la verifica completa (`01296d5`): suite 565 passed / 11 skipped su 3.13 e
+3.14.9, 11 prove reali passate, checklist Docker verde. Revisione finale (opus): «Sì, con
+correzioni», 1 importante: domanda in ambito subito dopo un rifiuto mai provata con la frase nuova.
+Provata con il grafo completo (`dbe5c84`): dopo la carbonara «Che ore sono a Tokyo?» e «Che cosa ti
+ho chiesto prima?» passano all'agente 4/4. Minori lasciati: BOM non tolto se stdin è decodificato
+in cp1252 (Python locale senza `PYTHONIOENCODING`/`PYTHONUTF8`); nota su Docker mancante per
+`AMBITO_PATH` nella tabella delle variabili del README; finestra di 4 messaggi del router (un
+rimando a una domanda rifiutata più indietro non viene riconosciuto). Dettagli in
+`docs/registro-test.md`, sessioni 15-17.

@@ -46,8 +46,10 @@ Esecuzione Native del Task 8. Modello delle prove: `google/gemma-4-e4b`, passato
 
 ### Resta da provare
 
-- Le 11 prove reali complete, con i servizi giorni e catalogo, nella verifica prima del push.
+- ~~Le 11 prove reali complete, con i servizi giorni e catalogo, nella verifica prima del push.~~
+  Eseguite il 2026-11-13: 11 passed (sessione 17).
 - Formulazioni dell'aggiramento diverse da quelle provate.
+- Rimando a una domanda rifiutata più indietro dei 4 messaggi visti dal router (limite noto).
 
 ## Sessione del 2026-11-11 (15) — commit `ebe561a`, spike sui minori del router
 
