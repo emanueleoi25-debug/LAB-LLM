@@ -125,7 +125,7 @@ def test_ambito_path_is_read_and_stripped(tmp_path):
 
 def test_ambito_bom_is_removed(tmp_path):
     f = tmp_path / "a.md"
-    f.write_bytes("﻿Solo orari.".encode("utf-8"))
+    f.write_bytes("\ufeffSolo orari.".encode("utf-8"))
     assert load_settings({**BASE, "AMBITO_PATH": str(f)}).ambito == "Solo orari."
 
 

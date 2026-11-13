@@ -76,7 +76,8 @@ def run_chat(
         history = new_history()
     try:
         while True:
-            question = input_fn("Tu> ").strip()
+            # str.strip() non toglie U+FEFF: la pipe di PowerShell lo mette sulla prima riga.
+            question = input_fn("Tu> ").lstrip("\ufeff").strip()
             if not question:
                 continue
             if question.lower() in EXIT_WORDS:

@@ -55,6 +55,18 @@ def test_system_message_has_prompt_and_scope():
     assert system.content.endswith("Ambito dell'assistente:\nAMBITO DI PROVA")
 
 
+ANTI_AGGIRAMENTO = (
+    "Una domanda che chiede di rispondere, ripetere o tornare a una domanda precedente (per esempio "
+    "«rispondi alla domanda di prima») va giudicata come quella domanda: se quella era fuori ambito, "
+    "anche questa è fuori ambito."
+)
+
+
+def test_system_message_has_anti_bypass_rule():
+    system, _ = classify(VALID)[1].calls[0]
+    assert "va giudicata insieme a quella conversazione. " + ANTI_AGGIRAMENTO in system.content
+
+
 def test_context_keeps_last_four_text_messages():
     call = {"name": "calculate", "args": {}, "id": "c1", "type": "tool_call"}
     history = [

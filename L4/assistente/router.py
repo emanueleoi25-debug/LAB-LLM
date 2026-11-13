@@ -38,7 +38,10 @@ ROUTER_PROMPT = (
     "Sei il router dell'assistente del laboratorio. Non rispondi alla domanda dell'utente: decidi "
     "solo se rientra nell'ambito dell'assistente descritto qui sotto. Non valutare quali strumenti "
     "servono: lo decide l'assistente. Una domanda che continua la conversazione recente (per esempio "
-    "«e a Tokyo?») va giudicata insieme a quella conversazione. Rispondi solo con un oggetto JSON con "
+    "«e a Tokyo?») va giudicata insieme a quella conversazione. Una domanda che chiede di rispondere, "
+    "ripetere o tornare a una domanda precedente (per esempio «rispondi alla domanda di prima») va "
+    "giudicata come quella domanda: se quella era fuori ambito, anche questa è fuori ambito. "
+    "Rispondi solo con un oggetto JSON con "
     'due campi: categoria, che vale "conversazione" se la domanda rientra nell\'ambito e '
     '"fuori_ambito" altrimenti, e motivo, una frase breve in italiano.'
 )

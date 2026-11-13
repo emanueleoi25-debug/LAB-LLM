@@ -37,6 +37,19 @@ def test_exit_words_end_loop(word):
     assert model.calls == []
 
 
+def test_bom_before_exit_word_ends_loop():
+    # La pipe di PowerShell manda la prima riga con un BOM: «esci» deve chiudere comunque.
+    model = ScriptedModel([])
+    run_chat(build_graph(model), input_fn=inputs("\ufeffesci"), output=io.StringIO())
+    assert model.calls == []
+
+
+def test_bom_is_removed_from_question():
+    model = ScriptedModel([AIMessage("Ciao!")])
+    history = run_chat(build_graph(model), input_fn=inputs("\ufeffCiao", "esci"), output=io.StringIO())
+    assert [m.content for m in history if m.type == "human"][-1] == "Ciao"
+
+
 @pytest.mark.parametrize("exc", [EOFError, KeyboardInterrupt])
 def test_eof_and_ctrl_c_end_loop(exc):
     def input_fn(prompt):
