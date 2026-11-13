@@ -3,7 +3,8 @@
 Chat da terminale in Python che organizza il flusso in un grafo LangGraph esplicito e usa un
 modello servito da LM Studio sull'host. La cronologia vale per la sessione e si perde all'uscita.
 Prima dell'agente un router decide se la domanda rientra nell'ambito dell'assistente: le domande
-fuori ambito ricevono un rifiuto senza raggiungere l'agente.
+fuori ambito ricevono un rifiuto senza raggiungere l'agente. Dopo l'agente un revisore controlla che
+la risposta sia coerente con la domanda e, se non lo è, la rimanda all'agente con il motivo.
 Progetto del corso «Deep Learning e LLM: costruire chatbot e agenti» (lezione L4).
 
 ## Requisiti
@@ -43,6 +44,7 @@ Le variabili d'ambiente hanno la precedenza su `.env`, che resta fuori da Git.
 | `AMBITO_PATH` | no | `ambito.md` | file con la descrizione dell'ambito usata dal router, relativo alla cartella da cui avvii l'app (vedi [Router](#router-domande-fuori-ambito)) |
 | `DEFAULT_TIMEZONE` | no | `Europe/Rome` | fuso dell'orologio quando il modello non indica una città (nome IANA) |
 | `MAX_TOOL_STEPS` | no | `3` | giri modello→strumenti consentiti per ogni domanda (intero ≥ 1) |
+| `MAX_REVISIONI` | no | `1` | volte in cui il revisore può rimandare la risposta all'agente per ogni domanda (intero ≥ 1; vedi [Revisore](#revisore-risposta-coerente-con-la-domanda)) |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 
 In LM Studio: carica il modello (es. `google/gemma-4-e2b`) e avvia il server locale (porta 1234).
@@ -92,7 +94,7 @@ Ogni domanda passa prima dal nodo `router`, che chiede allo stesso modello di LM
 prompt di sistema proprio, se la domanda rientra nell'ambito dell'assistente. Il grafo è:
 
 ```
-START → router ─┬─ conversazione (anche risposta non utilizzabile) → agente ─┬─ nessuna chiamata → END
+START → router ─┬─ conversazione (anche risposta non utilizzabile) → agente ─┬─ nessuna chiamata → revisore
                 │                                                            ├─ chiamata, entro il limite → strumenti → agente
                 │                                                            └─ chiamata, oltre il limite → limite → END
                 └─ fuori_ambito → rifiuto → END
@@ -153,6 +155,80 @@ WARNING assistente.graph: router: risposta non utilizzabile (JSON non valido), l
 Nel percorso fuori ambito non compaiono righe `→ modello` o `← modello`: è il segno che l'agente
 non è stato eseguito. Con `LOG_LEVEL=DEBUG` compaiono anche i messaggi mandati al router
 (`→ router [sistema] …`, `→ router [utente] …`).
+
+## Revisore: risposta coerente con la domanda
+
+Quando l'agente dà una risposta di testo (senza altre chiamate agli strumenti), il nodo `revisore`
+chiede allo stesso modello di LM Studio, con un prompt di sistema proprio, se la risposta è coerente
+con la domanda: se risponde a tutte le parti richieste e non devia dal tema. Non controlla che i
+dati siano giusti: non vede le chiamate e i risultati degli strumenti, solo gli ultimi 4 messaggi di
+testo della conversazione, la domanda e la risposta proposta. Risponde con un JSON vincolato da uno
+schema (`temperature=0`): `coerente` (vero o falso) e `motivo`.
+
+```
+revisore ─┬─ coerente (o risposta del revisore non utilizzabile) → END
+          ├─ non coerente, entro MAX_REVISIONI ─────────────────→ agente
+          └─ non coerente, limite raggiunto ────────────────────→ END (resta l'ultima risposta)
+```
+
+- Coerente: la risposta arriva all'utente.
+- Non coerente: il revisore aggiunge per l'agente il messaggio «Indicazione del revisore: la
+  risposta non è coerente con la domanda dell'utente. Motivo: … Rispondi di nuovo alla domanda, in
+  modo completo.» e l'agente riprova, usando di nuovo gli strumenti se servono. Il limite
+  `MAX_TOOL_STEPS` vale per tutta la domanda, non per ogni tentativo.
+- Limite di revisioni raggiunto (`MAX_REVISIONI`, predefinito 1): l'utente riceve l'ultima risposta
+  e nel log compare un avviso.
+- Risposta del revisore non utilizzabile o errore del server durante la revisione: la risposta
+  viene approvata, con un avviso nel log. Il revisore non blocca l'assistente.
+- `rifiuto` e `limite` danno risposte fisse e non passano dal revisore.
+
+Bozze rifiutate e indicazioni servono solo durante il turno: alla fine il grafo le toglie dalla
+cronologia, che contiene la domanda, le chiamate agli strumenti con i loro risultati e la risposta
+finale. Il router e l'agente dei turni successivi non le vedono.
+
+La CLI mostra solo la risposta finale, approvata o lasciata dal limite, mai le bozze: è la scelta
+per la «decisione da prendere» della lezione 6 tra bozza e risposta approvata; per l'interfaccia
+web si deciderà allo step 8.
+
+Il revisore costa una chiamata in più per ogni domanda in ambito: con `google/gemma-4-e4b` da 33 a
+47 s il 2026-11-13 (circa 320-445 token di uscita per una trentina visibili, probabilmente un
+ragionamento nascosto, come il router). Con `MAX_REVISIONI=1` il caso peggiore (router, risposta,
+revisione, nuova risposta, nuova revisione) richiede circa 3,5-4 minuti.
+
+Righe di log da `docker compose run` con `google/gemma-4-e4b` il 2026-11-13, domanda «Che ore sono a
+Tokyo e quanto fa 15 per 4?» (estratto):
+
+```
+2026-11-13 18:38:45,782 INFO assistente.graph: router → agente
+2026-11-13 18:39:40,429 INFO assistente.graph: ← modello [chiamata] get_current_time {'city': 'Tokyo'}
+2026-11-13 18:39:40,429 INFO assistente.graph: ← modello [chiamata] calculate {'expression': '15 * 4'}
+2026-11-13 18:40:08,389 INFO assistente.graph: ← modello [risposta] A Tokyo sono le 02:39 (ore locali del giorno 14/11/2026).\nInoltre, 15 per 4 fa **60**.
+2026-11-13 18:40:53,751 INFO assistente.graph: revisore: coerente=sì motivo=La risposta affronta entrambe le parti della domanda: l'ora a Tokyo e il calcolo matematico.
+2026-11-13 18:40:53,751 INFO assistente.graph: revisore → END
+```
+
+Quando la risposta non è coerente compaiono invece (formato, come nella prova reale con la prima
+bozza simulata):
+
+```
+INFO assistente.graph: revisore: coerente=no motivo=<motivo>
+INFO assistente.graph: revisore → agente (revisione 1 di 1)
+INFO assistente.graph: → modello [utente] Indicazione del revisore: la risposta non è coerente con la domanda dell'utente. Motivo: <motivo> Rispondi di nuovo alla domanda, in modo completo.
+…
+INFO assistente.graph: revisore: tolti 2 messaggi dalla cronologia
+```
+
+Avvisi possibili: `WARNING … revisore: limite di revisioni raggiunto (1), restituita l'ultima
+risposta` e `WARNING … revisore: risposta non utilizzabile (<errore>), risposta approvata: <risposta
+grezza>`. Con `LOG_LEVEL=DEBUG` compaiono anche i messaggi mandati al revisore (`→ revisore
+[sistema] …`, `→ revisore [utente] …`).
+
+Con il modello vero l'agente raramente risponde solo in parte, quindi la prova reale del rifiuto
+(`test_real_reviewer_corrects_simulated_partial_draft`) usa una **prima bozza simulata**: la prima
+risposta dell'agente è fissa («A Tokyo sono le 01:05.» a «Che ore sono a Tokyo e quanto fa 15 per
+4?»), dalla seconda risponde il modello vero. La prova dimostra che il revisore vero rifiuta la
+risposta parziale e che l'agente vero la completa dopo l'indicazione; non dimostra che l'agente vero
+sbagli da solo.
 
 ## Strumento orologio, log e limite di passaggi
 
@@ -613,7 +689,9 @@ docker compose --profile test run --rm --build test
 ```
 
 I test automatici non richiedono LM Studio: il modello è sostituito da uno stub, anche per il
-router (risposte del router simulate per entrambi i percorsi e per una risposta non utilizzabile).
+router (risposte del router simulate per entrambi i percorsi e per una risposta non utilizzabile)
+e per il revisore (risposta coerente, risposta parziale corretta, revisore che rifiuta sempre fino al
+limite, risposta non utilizzabile).
 Le prove reali risultano `skipped`. Il server delle note è provato in-process; solo `tests/test_note_stdio.py` e
 alcuni test di `tests/test_mcp_client.py` avviano un sottoprocesso (qualche secondo).
 
@@ -621,8 +699,11 @@ alcuni test di `tests/test_mcp_client.py` avviano un sottoprocesso (qualche seco
 
 Con LM Studio attivo, `.env` configurato e i servizi giorni e catalogo avviati (le prove su
 `date_info` e `search_catalog` falliscono con «servizio giorni non avviato» o «servizio catalogo
-non avviato» se il servizio non risponde). Tutte le prove passano anche dal router; due lo
-provano direttamente (una domanda in ambito e una fuori ambito):
+non avviato» se il servizio non risponde). Tutte le prove passano anche dal router e, per le
+domande in ambito, dal revisore; tre provano direttamente il router (in ambito, fuori ambito e dopo
+un rifiuto) e due il revisore (risposta coerente approvata e prima bozza simulata corretta, vedi
+[Revisore](#revisore-risposta-coerente-con-la-domanda)). Con `google/gemma-4-e4b` le 13 prove hanno
+richiesto circa 25 minuti il 2026-11-13:
 
 ```powershell
 $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:RUN_LMSTUDIO_TESTS
@@ -635,7 +716,8 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
 2. Prove reali con LM Studio (comando sopra, con i servizi giorni e catalogo avviati): risposta,
    memoria della sessione, uso dell'orologio, del convertitore, della calcolatrice, di `date_info`,
    di `search_catalog` e delle note, router in ambito, fuori ambito e dopo un rifiuto con
-   «Rispondi alla domanda di prima» (11 passed).
+   «Rispondi alla domanda di prima», revisore con risposta coerente e con prima bozza simulata
+   (13 passed).
 3. In Docker, `docker compose run --rm assistente`:
    - «Che ore sono a Miami?» → su stderr compaiono `← modello [chiamata] get_current_time
      {'city': 'Miami'}` e un risultato con `America/New_York`; la risposta è coerente con l'ora
@@ -666,6 +748,8 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
      risultato e nella risposta.
    - «Dammi la ricetta della carbonara» → su stderr `router: categoria=fuori_ambito …`,
      `router → rifiuto` e nessuna riga `→ modello`; la risposta è il testo fisso del rifiuto.
+   - «Che ore sono a Tokyo e quanto fa 15 per 4?» → `get_current_time` e `calculate`, poi
+     `revisore: coerente=sì …` e `revisore → END`; la risposta contiene l'ora di Tokyo e 60.
 
    Con `docker compose run` i servizi `giorni` e `catalogo` partono da soli; alla fine
    `docker compose stop giorni catalogo`.
@@ -684,7 +768,7 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | Sintomo | Causa probabile | Cosa fare |
 |---|---|---|
 | `Configurazione non valida: LMSTUDIO_BASE_URL mancante…` (codice 2) | manca `.env` o una variabile | `Copy-Item .env.example .env` e controlla i valori |
-| `DEFAULT_TIMEZONE non valido` / `MAX_TOOL_STEPS non valido` (codice 2) | valore errato in `.env` | nome IANA come `Europe/Rome`; intero ≥ 1 |
+| `DEFAULT_TIMEZONE non valido` / `MAX_TOOL_STEPS non valido` / `MAX_REVISIONI non valido` (codice 2) | valore errato in `.env` | nome IANA come `Europe/Rome`; intero ≥ 1 |
 | `LM Studio non raggiungibile a …` (codice 1) | server di LM Studio spento o porta diversa | avvia il server in LM Studio; controlla `LMSTUDIO_BASE_URL` |
 | lo stesso messaggio solo in Docker | il container non raggiunge l'host | prova il comando di controllo della sezione Docker; se fallisce, in LM Studio attiva «Serve on Local Network» |
 | `Modello '…' non disponibile su …` (codice 1) | identificativo errato o modello non scaricato | usa uno degli identificativi elencati nel messaggio |
@@ -703,6 +787,8 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `AMBITO_PATH vuoto: '…'` (codice 2) | il file dell'ambito è vuoto o contiene solo spazi | scrivi la descrizione dell'ambito (vedi `ambito.md`) |
 | `Assistente> Posso aiutarti solo con il laboratorio: …` per una domanda che dovrebbe essere accettata | il router l'ha giudicata fuori ambito; il motivo è nella riga `router: categoria=fuori_ambito motivo=…` | aggiungi l'argomento o un esempio in `ambito.md` e riavvia (in Docker con `--build`) |
 | `WARNING … router: risposta non utilizzabile (…)` | il modello non ha risposto con il JSON previsto; la domanda è passata comunque all'agente | nessuna azione se è occasionale; se si ripete, controlla nel log di LM Studio che il modello supporti lo schema JSON (`response_format`) |
+| `WARNING … revisore: risposta non utilizzabile (…), risposta approvata` | il modello non ha risposto con il JSON previsto, oppure (`errore del server: …`) il server non ha risposto durante la revisione; la risposta dell'agente è arrivata comunque all'utente | nessuna azione se è occasionale; se si ripete, controlla LM Studio come per il router |
+| `WARNING … revisore: limite di revisioni raggiunto (…)` | il revisore ha giudicato non coerente anche l'ultima risposta; l'utente l'ha ricevuta comunque | leggi i motivi nelle righe `revisore: coerente=no motivo=…`: se la risposta era buona è un falso rifiuto, altrimenti riformula la domanda o alza `MAX_REVISIONI` (ogni revisione in più costa circa 1,5 minuti con `google/gemma-4-e4b`) |
 | `NOTE_DB_PATH mancante` (codice 2) | manca la variabile in `.env` (per esempio un `.env` creato prima delle note) | aggiungi `NOTE_DB_PATH=dati/note.db` (vedi `.env.example`) |
 | `Server MCP delle note non avviabile: …` (codice 1) | il server delle note non parte: per esempio dipendenze non installate (`mcp`) o file di `servizio_note/` mancanti; sopra il messaggio compare di solito l'errore del server | `python -m pip install -r requirements-dev.txt`; prova `python -c "import servizio_note.server"` dalla cartella `Es.1/L4` |
 | `risultato strumento: Errore: archivio delle note non utilizzabile (…)` | `NOTE_DB_PATH` indica una cartella, un percorso non scrivibile o un file che non è un database SQLite | correggi `NOTE_DB_PATH`; in Docker il volume `note` deve essere montato su `/app/dati` |

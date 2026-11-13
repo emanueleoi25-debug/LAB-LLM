@@ -374,3 +374,23 @@ Osservazioni:
   `MAX_REVISIONI=1` (router, bozza, revisione, nuova bozza, revisione) circa 3,5–4 minuti.
 - Con `coerente=true` il motivo era vuoto in 6 approvazioni su 8: da qui la regola del §3.5.
 - Lo schema JSON è stato rispettato in 14 risposte su 14.
+
+## 10. Esito (2026-11-13, Task 1-6 del piano, esecuzione Native)
+
+Commit su `feat/revisore`: `c455a05` contesto condiviso, `30c462f` revisore e modello del
+revisore, `7d941e3` nodo `revisore` e pulizia della cronologia, `af5834e` `MAX_REVISIONI` e
+collegamento nella CLI, `f8e3bea` prove reali; documentazione nel commit che aggiunge questa sezione.
+
+| Verifica | Esito |
+|---|---|
+| Suite senza modello, Python 3.13.14 (venv) e 3.14.9 (container) | 609 passed, 13 skipped in entrambi |
+| Prove reali con `google/gemma-4-e4b`, servizi giorni e catalogo avviati | 13 passed in 1532 s (857 s per le 11 prove senza revisore il 2026-11-13) |
+| Evidenza «risposta coerente approvata al primo passaggio» | test simulato `test_coherent_answer_is_approved_first_time` e prova reale `test_real_reviewer_approves_coherent_answer` |
+| Evidenza «risposta parziale: rifiuto motivato e nuova risposta completa» | test simulato `test_partial_answer_is_rejected_then_completed` e prova reale `test_real_reviewer_corrects_simulated_partial_draft` (prima bozza simulata) |
+| Evidenza «limite rispettato con un revisore che rifiuta sempre» | test simulato `test_reviewer_always_rejecting_respects_limit` (limite 1 e 2) |
+| Checklist Docker, «Che ore sono a Tokyo e quanto fa 15 per 4?» | `get_current_time` e `calculate`, risposta con l'ora e 60, `revisore: coerente=sì`, `revisore → END` (revisione in 45 s) |
+
+Resta da provare: checklist da terminale interattivo vero (senza `-T`); un rifiuto del revisore
+su una risposta parziale prodotta dall'agente vero da solo (non osservato: nella prova reale la
+prima bozza è simulata); la frequenza dei falsi rifiuti su molte domande (le 11 prove reali
+esistenti non ne hanno fatti fallire nessuna, ma non registrano i giudizi).

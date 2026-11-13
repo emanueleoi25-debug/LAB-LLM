@@ -52,7 +52,7 @@ manuali durante lo sviluppo.
 
 ## Struttura e comandi
 - Pacchetto `assistente/`: `config.py` (variabili d'ambiente, `GIORNI_BASE_URL`,
-  `CATALOGO_BASE_URL` e `NOTE_DB_PATH` obbligatorie, `AMBITO_PATH` facoltativa),
+  `CATALOGO_BASE_URL` e `NOTE_DB_PATH` obbligatorie, `AMBITO_PATH` e `MAX_REVISIONI` facoltative),
   `tools.py` (orologio, convertitore, calcolatrice), `dates.py` (strumenti delle date, client HTTP
   del servizio giorni), `catalog.py` (strumenti del catalogo, client HTTP del servizio catalogo),
   `mcp_client.py` (client MCP generico: strumenti da `list_tools`, una sessione stdio per
@@ -60,10 +60,12 @@ manuali durante lo sviluppo.
   `units.py` (tabella delle unità e conversione), `arithmetic.py` (analisi e calcolo
   sicuro delle espressioni aritmetiche),
   `cities.py` (ricerca città → fuso su archivio locale), `graph.py` (stato, nodi `router`,
-  `agente`, `strumenti`, `limite` e `rifiuto`, instradamento, log dei messaggi al modello),
-  `router.py` (prompt, contesto e lettura validata della decisione del router), `model.py`
-  (collegamento a LM Studio: modello dell'agente con gli strumenti e modello del router con
-  schema JSON), `cli.py` (ciclo da
+  `agente`, `strumenti`, `limite`, `rifiuto` e `revisore`, instradamento, pulizia della cronologia a
+  fine turno, log dei messaggi al modello),
+  `router.py` (prompt, contesto e lettura validata della decisione del router), `revisore.py`
+  (prompt, schema e lettura validata della revisione), `contesto.py` (contesto recente condiviso da
+  router e revisore), `model.py` (collegamento a LM Studio: modello dell'agente con gli strumenti e
+  modelli del router e del revisore con schema JSON), `cli.py` (ciclo da
   terminale, cronologia, log), `__main__.py` (`python -m assistente`).
 - `ambito.md`: descrizione dell'ambito dell'assistente usata dal router (versionata; percorso
   cambiabile con `AMBITO_PATH`).
