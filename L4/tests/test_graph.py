@@ -462,3 +462,12 @@ def test_next_turn_sees_no_drafts():
     ask(graph, history, "seconda domanda")
     for text in (router_model.calls[1][1].content, " ".join(m.text for m in agent.calls[-1])):
         assert "bozza" not in text and "Indicazione del revisore" not in text
+
+
+def test_draft_with_reused_id_keeps_final_answer():
+    agent = ScriptedModel([AIMessage("bozza", id="dup"), AIMessage("completa", id="dup")])
+    result = build_graph(agent, reviewer=reviewer_says(NO, OK)[0]).invoke(start())
+    assert [m.type for m in agent.calls[1][-2:]] == ["ai", "human"]
+    assert (agent.calls[1][-2].content, agent.calls[1][-1].content) == ("bozza", HINT)
+    assert [m.type for m in result["messages"]] == ["human", "ai"]
+    assert result["messages"][-1].content == "completa"

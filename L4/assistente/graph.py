@@ -140,6 +140,10 @@ def build_graph(
     def call_model(state: AssistantState) -> dict:
         _log_sent(state["messages"])
         message = model.invoke(state["messages"])
+        if message.id is not None and any(m.id == message.id for m in state["messages"]):
+            # Con lo stesso id add_messages sostituirebbe il messaggio vecchio (per esempio la bozza
+            # rifiutata) e la pulizia del revisore toglierebbe poi anche la risposta finale.
+            message = message.model_copy(update={"id": str(uuid4())})
         _log_received(message)
         return {"messages": [message]}
 

@@ -394,3 +394,31 @@ Resta da provare: checklist da terminale interattivo vero (senza `-T`); un rifiu
 su una risposta parziale prodotta dall'agente vero da solo (non osservato: nella prova reale la
 prima bozza è simulata); la frequenza dei falsi rifiuti su molte domande (le 11 prove reali
 esistenti non ne hanno fatti fallire nessuna, ma non registrano i giudizi).
+
+## 11. Correzione dopo la revisione finale (2026-11-13, approvata dall'utente)
+
+La revisione finale (opus, `155e464..9aabff2`) ha dato «Ready to merge: Yes», 0 critici, 0
+importanti, 4 minori. Il minore 1 è stato rivalutato importante per l'effetto e l'utente ha chiesto
+di correggerlo; gli altri tre restano minori rimandati.
+
+### 11.1 Bozza con un id già presente nello stato
+
+Se la nuova bozza dell'agente arriva con lo stesso `id` di un messaggio già nello stato (server che
+riusa l'id della risposta, involucro o cache che restituisce lo stesso messaggio), `add_messages`
+sostituisce il messaggio vecchio invece di aggiungerne uno nuovo: l'indicazione resta l'ultimo
+messaggio, la pulizia a fine turno toglie quell'id e con lui la risposta finale; l'utente riceve
+«(nessuna risposta dal modello)» e la cronologia resta con due domande di fila.
+
+Correzione: nel nodo `agente`, se l'`AIMessage` ricevuta ha un `id` già presente in
+`state["messages"]`, se ne usa una copia con un id nuovo (`uuid4`). Gli id restituiti dal server,
+quando sono nuovi, restano invariati. Test: `test_draft_with_reused_id_keeps_final_answer` in
+`tests/test_graph.py` (agente con due bozze dallo stesso id, revisore che rifiuta e poi approva →
+cronologia `[human, ai]` con la seconda bozza).
+
+### 11.2 Minori rimandati (decide l'utente)
+
+1. Al limite, se l'ultima bozza è vuota, l'utente non riceve nulla mentre la bozza parziale
+   precedente è stata tolta (conforme al §2.3).
+2. `REVIEW_HINT`: se il motivo non finisce con un punto il testo si legge male («Motivo: manca il
+   calcolo Rispondi…»).
+3. `_one_line` in `graph.py` non sostituisce `\r` nei log (`contesto.flat` sì).
