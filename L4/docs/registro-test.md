@@ -3,6 +3,30 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-13 (17) — commit `dbe5c84` su `dev`, verifica completa prima del push
+
+Verifica completa rifatta da capo dopo il merge di `feat/router-minori` in `dev` (fast-forward),
+come richiesto dall'utente prima di ogni push. Modello `google/gemma-4-e4b` passato nell'ambiente.
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14, da `L4` e da `Es.1` | `python -m pytest -q`; `L4/.venv/Scripts/python.exe -m pytest L4/tests -q -p no:cacheprovider` | 565 passed, 11 skipped in entrambi i casi |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 565 passed, 11 skipped |
+| Prove reali | venv locale, servizi giorni (8000) e catalogo (8001) avviati con uvicorn, LM Studio | `RUN_LMSTUDIO_TESTS=1 … python -m pytest -m lmstudio -v` | **11 passed in 857 s**; poi servizi fermati, porte libere |
+| Checklist Docker, memoria | PowerShell, `docker compose run --rm -T` con pipe | «Che ore sono a Miami?», «Quale città ti ho chiesto prima?» | `get_current_time {'city': 'Miami'}` con `America/New_York`; la seconda risposta cita Miami |
+| Checklist Docker, strumenti e router | come sopra, nuovo avvio | domande del README «Verifica completa», punto 3 | nuovo avvio: la città non è ricordata; «Che ore sono?» → `fuso predefinito` Europe/Rome; 10 miglia → `convert_units`, `10 mi = 16.09 km`; `calculate {'expression': '1234 * 5678'}` → 7006652; `7 / 0` → `Errore: divisione per zero.`, nessun numero inventato; km→kg → `Errore: unità incompatibili`; Natale → `days_between {'end': '12-25'}`, 42 giorni; 2 giugno 2027 → `date_info {'date': '2027-06-02'}`, Festa della Repubblica; multimetro → `search_catalog`, «Armadio A, ripono 1» (refuso del modello per «ripiano»); nota → `add_note`, «Nota 2 salvata»; carbonara → `router → rifiuto`, nessuna riga `→ modello` |
+| Checklist Docker, note dopo un nuovo avvio | come sopra | «Quali note ho?» | `list_notes`: nota 2 appena salvata e nota 1 di prova dell'8/11 (volume `note`); poi `docker compose stop giorni catalogo` |
+
+Primo giro della checklist con le domande in uno script `.ps1`: Windows PowerShell 5.1 ha letto il
+file UTF-8 senza BOM come ANSI e le lettere accentate sono arrivate rovinate
+(`Il 2 giugno 2027 Ã¨ festivo?` → `(nessuna risposta dal modello)`, nessuno strumento). Errore dello
+script di prova, non dell'applicazione: le tre domande con accenti, ripetute con la pipe scritta
+direttamente nel comando, sono passate (righe sopra).
+
+### Resta da provare
+
+- Checklist da terminale interattivo vero (senza `-T`), mai fatta.
+
 ## Sessione del 2026-11-13 (16) — branch `feat/router-minori`, minori del router (spec §11, Task 8)
 
 Esecuzione Native del Task 8. Modello delle prove: `google/gemma-4-e4b`, passato nell'ambiente
