@@ -1,6 +1,6 @@
 # Revisore: la risposta è coerente con la domanda?
 
-Data: 2026-11-13, in revisione dall'utente. Branch: `feat/revisore` (da `dev` = `155e464`). Step 2
+Data: 2026-11-13, approvata dall'utente il 2026-11-13. Branch: `feat/revisore` (da `dev` = `155e464`). Step 2
 della lezione 6 (`Es.1/LLM_Lez_6.pdf`, «Grafo con due nodi LLM»), secondo dei nove step della
 roadmap in `CLAUDE.md`. Gli step successivi (riassunto, resource, …) non si anticipano.
 
