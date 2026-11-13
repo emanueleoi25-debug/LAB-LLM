@@ -4059,6 +4059,12 @@ condiviso, `30c462f` revisore, `7d941e3` nodo `revisore` e pulizia della cronolo
 parti: revisore `coerente=sì`, `revisore → END`. Esito nella spec §10. Da fare: revisione finale
 opus, merge in `dev` (su richiesta), nessun push.
 
+**Stato (2026-11-13, dopo la revisione finale):** revisione opus «Ready to merge: Yes», 0 critici,
+0 importanti, 4 minori. Minore 1 (bozza con un id già presente → risposta finale tolta) rivalutato
+importante e corretto su richiesta dell'utente: spec §11.1, Task 7, `0003550`
+(`test_draft_with_reused_id_keeps_final_answer` RED→GREEN, suite 610 passed / 13 skipped). Altri
+tre minori rimandati (spec §11.2).
+
 ### Revisore Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -4233,3 +4239,16 @@ Richiede LM Studio con `google/gemma-4-e4b` e, per le prove esistenti, i servizi
 - [ ] **Step 3: `tests/test-manuali.txt`**: voce con la domanda in due parti e le righe del revisore attese.
 - [ ] **Step 4: Spec §10 «Esito»** (prove eseguite, numeri, che cosa resta da provare: checklist da terminale interattivo vero) e aggiornamento di `Es.1/plan.md` (tabella di stato ed esito).
 - [ ] **Step 5: Commit** `docs: revisore nel README, in CLAUDE.md e nella spec` (file: `README.md`, `CLAUDE.md`, la spec) e, separato, `docs: esito del piano del revisore in plan.md` (file: `../plan.md`).
+
+##### Task 7: Bozza con un id già presente nello stato (spec §11.1)
+
+**Files:**
+- Modify: `assistente/graph.py` (`call_model`)
+- Test: `tests/test_graph.py`
+- Modify: `docs/registro-test.md`, `../plan.md` (esito)
+
+- [ ] **Step 1: Test che fallisce** `test_draft_with_reused_id_keeps_final_answer`: agente `ScriptedModel([AIMessage("bozza", id="dup"), AIMessage("completa", id="dup")])`, revisore `[NO, OK]` → cronologia finale tipi `["human", "ai"]`, ultimo contenuto `"completa"`; la seconda chiamata all'agente termina con `[ai "bozza", human REVIEW_HINT]`.
+- [ ] **Step 2: Eseguirlo** → FAIL (cronologia senza `ai`).
+- [ ] **Step 3: Implementare** in `call_model`: se `message.id` è già fra gli id di `state["messages"]`, `message = message.model_copy(update={"id": str(uuid4())})`.
+- [ ] **Step 4: Eseguire** `./.venv/Scripts/python.exe -m pytest -q` → tutto PASS.
+- [ ] **Step 5: Commit** `fix(grafo): id nuovo per una bozza con un id già presente` (file: `assistente/graph.py`, `tests/test_graph.py`, la spec e il piano).
