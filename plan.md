@@ -4052,7 +4052,12 @@ Approvato il 2026-11-13 (esecuzione: Native, revisione finale opus).
 Spec: `L4/docs/superpowers/specs/2026-11-13-revisore-design.md` (spike prima della spec, §9).
 Fonte: `L4/docs/superpowers/plans/2026-11-13-revisore.md`.
 
-**Stato (2026-11-13):** piano approvato, esecuzione in corso su `feat/revisore`.
+**Stato (2026-11-13):** Task 1-6 completati su `feat/revisore` (esecuzione Native): `c455a05` contesto
+condiviso, `30c462f` revisore, `7d941e3` nodo `revisore` e pulizia della cronologia, `af5834e`
+`MAX_REVISIONI` e CLI, `f8e3bea` prove reali, poi documentazione. Suite 609 passed / 13 skipped su
+3.13.14 e 3.14.9. Prove reali con e4b: 13 passed in 1532 s. Checklist Docker con la domanda in due
+parti: revisore `coerente=sì`, `revisore → END`. Esito nella spec §10. Da fare: revisione finale
+opus, merge in `dev` (su richiesta), nessun push.
 
 ### Revisore Implementation Plan
 
