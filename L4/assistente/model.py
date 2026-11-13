@@ -8,6 +8,7 @@ from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 
 from assistente.config import Settings
+from assistente.revisore import REVIEW_SCHEMA
 from assistente.router import DECISION_SCHEMA
 
 # LM Studio non richiede una chiave, ma il client OpenAI ne vuole una.
@@ -54,5 +55,16 @@ def create_router_model(settings: Settings) -> Runnable:
         response_format={
             "type": "json_schema",
             "json_schema": {"name": "decisione_router", "strict": True, "schema": DECISION_SCHEMA},
+        }
+    )
+
+
+def create_reviewer_model(settings: Settings) -> Runnable:
+    """Modello del revisore: stesso server e modello, nessuno strumento, risposta JSON vincolata."""
+    model = ChatOpenAI(base_url=settings.base_url, api_key=API_KEY, model=settings.model, temperature=0)
+    return model.bind(
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": "revisione", "strict": True, "schema": REVIEW_SCHEMA},
         }
     )

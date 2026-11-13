@@ -4,7 +4,14 @@ import pytest
 from langchain_openai import ChatOpenAI
 
 from assistente.config import Settings
-from assistente.model import ModelCheckError, check_model, create_chat_model, create_router_model
+from assistente.model import (
+    ModelCheckError,
+    check_model,
+    create_chat_model,
+    create_reviewer_model,
+    create_router_model,
+)
+from assistente.revisore import REVIEW_SCHEMA
 from assistente.router import DECISION_SCHEMA
 from assistente.tools import make_clock_tool
 
@@ -50,6 +57,16 @@ def test_router_model_uses_schema_and_zero_temperature():
     assert bound.kwargs["response_format"] == {
         "type": "json_schema",
         "json_schema": {"name": "decisione_router", "strict": True, "schema": DECISION_SCHEMA},
+    }
+    assert "tools" not in bound.kwargs
+    assert bound.bound.temperature == 0 and bound.bound.model_name == "google/gemma-4-e2b"
+
+
+def test_reviewer_model_uses_schema_and_zero_temperature():
+    bound = create_reviewer_model(settings())
+    assert bound.kwargs["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "revisione", "strict": True, "schema": REVIEW_SCHEMA},
     }
     assert "tools" not in bound.kwargs
     assert bound.bound.temperature == 0 and bound.bound.model_name == "google/gemma-4-e2b"
