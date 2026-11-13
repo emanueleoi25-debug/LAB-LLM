@@ -3,6 +3,27 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-13 (18) — branch `feat/revisore` (da `155e464`), spike del revisore
+
+Spike prima della spec dello step 2 (`docs/superpowers/specs/2026-11-13-revisore-design.md`, §9).
+Script usa e getta nella scratchpad, lanciato da `L4` con `PYTHONPATH=.`; LM Studio sulla porta
+1234 con `google/gemma-4-e4b`. Revisore: `ChatOpenAI` con `temperature=0` e `response_format`
+`json_schema` (`coerente` booleano, `motivo` stringa), prompt del §3.3 della spec. Correzione:
+grafo dell'agente (`build_graph` senza router) con orologio, convertitore e calcolatrice, partendo
+da domanda, bozza parziale fissa e indicazione.
+
+| Prova | Casi | Esito | Tempo |
+|---|---|---|---|
+| Giudizio, risposte parziali o fuori tema | P1 «Che ore sono a Tokyo e quanto fa 15 per 4?» → solo l'ora; P2 miglia + festività → solo le miglia; P3 giorni al 31 dicembre → l'ora di Tokyo; 2 ripetizioni | 6/6 `coerente=false`, motivo che indica la parte mancante | 38,0–46,7 s |
+| Giudizio, risposte complete | C1 due parti complete; C2 posizione del multimetro; C3 seguito «e a Tokyo?» dopo New York; C4 «Che cosa ti ho chiesto prima?»; 2 ripetizioni | 8/8 `coerente=true`; motivo vuoto in 6 su 8 (C1, C3, C4) | 32,8–40,1 s |
+| Correzione con `HumanMessage` | bozza «A Tokyo sono le 01:05.» + indicazione con il motivo; 3 tentativi | 3/3: `get_current_time` e `calculate` richiamati, risposta con «15 per 4 fa 60» | 47,3–51,4 s |
+| Correzione con `SystemMessage` | come sopra, indicazione come messaggio di sistema; 1 tentativo | 1/1 completa, nessun errore del template | 31,3 s |
+
+Token del revisore: 220–238 in ingresso, 317–445 in uscita per circa 30 visibili (ragionamento
+nascosto, come il router). JSON conforme allo schema in 14 risposte su 14. Decisioni prese
+dall'utente dopo lo spike: motivo vuoto accettato con `coerente=true`; indicazione come
+`HumanMessage`.
+
 ## Sessione del 2026-11-13 (17) — commit `dbe5c84` su `dev`, verifica completa prima del push
 
 Verifica completa rifatta da capo dopo il merge di `feat/router-minori` in `dev` (fast-forward),
