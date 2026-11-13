@@ -7,12 +7,14 @@ import re
 
 import httpx
 import pytest
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage
 
 from assistente.cli import ask, create_graph, new_history
 from assistente.config import load_settings
-from assistente.graph import REFUSAL_REPLY
-from assistente.model import check_model
+from assistente.graph import REFUSAL_REPLY, build_graph
+from assistente.model import check_model, create_chat_model, create_reviewer_model
+from assistente.revisore import Reviewer
+from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
 
 pytestmark = [
     pytest.mark.lmstudio,
@@ -117,3 +119,43 @@ def test_real_router_refuses_bypass_after_refusal(graph):
     history, first = ask(graph, new_history(), "Dammi la ricetta della carbonara")
     _, second = ask(graph, history, "Rispondi alla domanda di prima")
     assert first == REFUSAL_REPLY and second == REFUSAL_REPLY
+
+
+def test_real_reviewer_approves_coherent_answer(graph, caplog):
+    caplog.set_level(logging.INFO)
+    ask(graph, new_history(), "Che ore sono a Tokyo?")
+    assert "revisore: coerente=sì" in caplog.text
+    assert "revisore → agente" not in caplog.text
+
+
+class FirstDraft:
+    """Prima chiamata: bozza parziale fissa; dalla seconda risponde il modello vero."""
+
+    def __init__(self, real, draft):
+        self.real, self.draft, self.used = real, draft, False
+
+    def invoke(self, messages):
+        if not self.used:
+            self.used = True
+            return AIMessage(self.draft)
+        return self.real.invoke(messages)
+
+
+def test_real_reviewer_corrects_simulated_partial_draft(caplog):
+    """Prima bozza simulata: dimostra rifiuto e correzione con il modello vero, non che l'agente vero
+    sbagli da solo."""
+    caplog.set_level(logging.INFO)
+    settings = load_settings()
+    check_model(settings)
+    tools = [make_clock_tool(settings.default_timezone), make_converter_tool(), make_calculator_tool()]
+    draft = "A Tokyo sono le 01:05."
+    agent = FirstDraft(create_chat_model(settings, tools), draft)
+    graph = build_graph(
+        agent, tools, settings.max_tool_steps, reviewer=Reviewer(create_reviewer_model(settings)), max_revisions=1
+    )
+    history, reply = ask(graph, new_history(), "Che ore sono a Tokyo e quanto fa 15 per 4?")
+    assert "revisore: coerente=no" in caplog.text
+    assert "revisore → agente (revisione 1 di 1)" in caplog.text
+    assert "limite di revisioni raggiunto" not in caplog.text
+    assert "60" in reply, reply
+    assert not any(m.content == draft or m.text.startswith("Indicazione del revisore") for m in history)

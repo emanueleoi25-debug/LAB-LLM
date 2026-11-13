@@ -3,6 +3,22 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-13 (19) — branch `feat/revisore`, commit `af5834e` + prove reali del revisore (Task 5)
+
+Verifiche dopo i Task 1-4 del piano del revisore e con le due prove reali nuove. Modello
+`google/gemma-4-e4b` passato nell'ambiente.
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14 | `./.venv/Scripts/python.exe -m pytest -q` | 609 passed, 13 skipped |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 609 passed, 13 skipped |
+| Prove reali | venv locale, servizi giorni (8000) e catalogo (8001) avviati con uvicorn, LM Studio | `RUN_LMSTUDIO_TESTS=1 LMSTUDIO_MODEL=google/gemma-4-e4b CATALOGO_BASE_URL=http://127.0.0.1:8001 NOTE_DB_PATH=<file temporaneo> ./.venv/Scripts/python.exe -m pytest -m lmstudio -v` | **13 passed in 1532 s** (le 11 esistenti ora passano anche dal revisore, nessun falso rifiuto che le faccia fallire; `test_real_reviewer_approves_coherent_answer` e `test_real_reviewer_corrects_simulated_partial_draft` passate); poi servizi fermati, porte libere |
+| Checklist Docker, domanda in due parti | PowerShell, `"Che ore sono a Tokyo e quanto fa 15 per 4?", "esci" \| docker compose run --rm -T --build -e LMSTUDIO_MODEL=google/gemma-4-e4b assistente` | — | `router → agente`; `get_current_time {'city': 'Tokyo'}` e `calculate {'expression': '15 * 4'}`; risposta «A Tokyo sono le 02:39 (…) Inoltre, 15 per 4 fa **60**.»; `revisore: coerente=sì motivo=La risposta affronta entrambe le parti della domanda: l'ora a Tokyo e il calcolo matematico.` (45 s dopo la risposta dell'agente), `revisore → END`; poi `docker compose stop giorni catalogo` |
+
+Le prove reali hanno richiesto 1532 s contro gli 857 s della sessione 17 (11 prove senza revisore):
+circa +675 s, coerente con una chiamata in più da 35-45 s per ogni turno in ambito più le due
+prove nuove.
+
 ## Sessione del 2026-11-13 (18) — branch `feat/revisore` (da `155e464`), spike del revisore
 
 Spike prima della spec dello step 2 (`docs/superpowers/specs/2026-11-13-revisore-design.md`, §9).
