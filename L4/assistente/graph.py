@@ -3,14 +3,21 @@
 START → router ─┬─ conversazione (anche risposta non utilizzabile) → agente
                 └─ fuori_ambito → rifiuto → END
 
-agente ─┬─ nessuna tool_call ─────────────────→ END
-        ├─ tool_call, tool_steps < max ──→ strumenti → agente
-        └─ tool_call, tool_steps >= max ─→ limite → END
+agente ─┬─ tool_call, tool_steps < max ─→ strumenti → agente
+        ├─ tool_call, tool_steps >= max → limite → END
+        └─ nessuna tool_call ───────────→ revisore
 
-Senza router (build_graph senza `router`) il grafo parte direttamente da `agente`.
+revisore ─┬─ approvata (coerente o risposta non utilizzabile) → END
+          ├─ rifiutata, revisioni < max_revisions ──────────→ agente
+          └─ rifiutata, revisioni = max_revisions ──────────→ END (resta l'ultima bozza)
+
+Senza router (build_graph senza `router`) il grafo parte direttamente da `agente`; senza revisore
+(build_graph senza `reviewer`) l'agente senza tool_call va a END. Bozze rifiutate e indicazioni del
+revisore vengono tolte dalla cronologia a fine turno.
 """
 
 import logging
+from uuid import uuid4
 from collections.abc import Sequence
 from typing import Annotated, NotRequired, Protocol, TypedDict
 
@@ -19,6 +26,7 @@ from langchain_core.messages import (
     AnyMessage,
     BaseMessage,
     HumanMessage,
+    RemoveMessage,
     SystemMessage,
     ToolMessage,
 )
@@ -26,6 +34,7 @@ from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
+from assistente.revisore import Reviewer
 from assistente.router import OUT_OF_SCOPE, Router
 
 logger = logging.getLogger(__name__)
@@ -39,6 +48,11 @@ REFUSAL_REPLY = (
     "Posso aiutarti solo con il laboratorio: ora e fusi orari, unità di misura, calcoli, date e "
     "scadenze, inventario e note. Questa domanda è fuori dal mio ambito."
 )
+REVIEW_HINT = (
+    "Indicazione del revisore: la risposta non è coerente con la domanda dell'utente. "
+    "Motivo: {motivo} Rispondi di nuovo alla domanda, in modo completo."
+)
+APPROVED, REJECTED, AT_LIMIT = "approvata", "rifiutata", "limite"
 
 
 class AssistantState(TypedDict):
@@ -46,6 +60,10 @@ class AssistantState(TypedDict):
     tool_steps: int
     categoria: NotRequired[str]  # "conversazione" o "fuori_ambito", scritta dal router
     motivo: NotRequired[str]  # motivo del router (o dell'inutilizzabilità della risposta)
+    revisioni: NotRequired[int]  # rifiuti del revisore in questo turno
+    scartati: NotRequired[list[str]]  # id di bozze rifiutate e indicazioni, tolti a fine turno
+    esito_revisione: NotRequired[str]  # "approvata", "rifiutata" o "limite"
+    motivo_revisione: NotRequired[str]  # motivo del revisore (o dell'inutilizzabilità della risposta)
 
 
 class ChatModel(Protocol):
@@ -98,14 +116,25 @@ def _log_received(message: AIMessage) -> None:
         logger.info("← modello [risposta] %s", _one_line(message.text))
 
 
+def _discard(state: AssistantState) -> list[RemoveMessage]:
+    """Toglie dalla cronologia le bozze rifiutate e le indicazioni del revisore di questo turno."""
+    discarded = state.get("scartati", [])
+    if discarded:
+        logger.info("revisore: tolti %d messaggi dalla cronologia", len(discarded))
+    return [RemoveMessage(id=message_id) for message_id in discarded]
+
+
 def build_graph(
     model: ChatModel,
     tools: Sequence[BaseTool] = (),
     max_tool_steps: int = 3,
     *,
     router: Router | None = None,
+    reviewer: Reviewer | None = None,
+    max_revisions: int = 1,
 ):
-    """Costruisce e compila il grafo: `agente`, `strumenti`, `limite` e, con il router, `router` e `rifiuto`."""
+    """Costruisce e compila il grafo: `agente`, `strumenti`, `limite` e, se presenti, `router` e
+    `rifiuto` (con il router) e `revisore` (con il revisore)."""
     tools_by_name = {t.name: t for t in tools}
 
     def call_model(state: AssistantState) -> dict:
@@ -140,7 +169,7 @@ def build_graph(
             for tool_call in _pending_tool_calls(state)
         ]
         reply = AIMessage(content=LIMIT_REPLY.format(max_tool_steps=max_tool_steps))
-        return {"messages": [*skipped, reply]}
+        return {"messages": [*_discard(state), *skipped, reply]}
 
     def classify(state: AssistantState) -> dict:
         decision = router.classify(state["messages"])
@@ -163,9 +192,47 @@ def build_graph(
         logger.info("rifiuto: domanda fuori ambito, agente non eseguito")
         return {"messages": [AIMessage(content=REFUSAL_REPLY)]}
 
+    def review_answer(state: AssistantState) -> dict:
+        revisions = state.get("revisioni", 0)
+        discarded = state.get("scartati", [])
+        review = reviewer.review(state["messages"], discarded)
+        if review.errore is None:
+            logger.info(
+                "revisore: coerente=%s motivo=%s", "sì" if review.coerente else "no", _one_line(review.motivo)
+            )
+        else:
+            logger.warning(
+                "revisore: risposta non utilizzabile (%s), risposta approvata: %s",
+                review.errore,
+                _one_line(review.grezza),
+            )
+        result = {"motivo_revisione": review.motivo}
+        if review.coerente:
+            return {**result, "esito_revisione": APPROVED, "messages": _discard(state)}
+        if revisions >= max_revisions:
+            logger.warning(
+                "revisore: limite di revisioni raggiunto (%d), restituita l'ultima risposta", max_revisions
+            )
+            return {**result, "esito_revisione": AT_LIMIT, "messages": _discard(state)}
+        hint = HumanMessage(REVIEW_HINT.format(motivo=review.motivo), id=str(uuid4()))
+        return {
+            **result,
+            "esito_revisione": REJECTED,
+            "revisioni": revisions + 1,
+            "scartati": [*discarded, state["messages"][-1].id, hint.id],
+            "messages": [hint],
+        }
+
+    def route_after_reviewer(state: AssistantState) -> str:
+        if state["esito_revisione"] == REJECTED:
+            logger.info("revisore → agente (revisione %d di %d)", state["revisioni"], max_revisions)
+            return "agente"
+        logger.info("revisore → END")
+        return END
+
     def route_after_model(state: AssistantState) -> str:
         if not _pending_tool_calls(state):
-            return END
+            return "revisore" if reviewer is not None else END
         if state["tool_steps"] < max_tool_steps:
             return "strumenti"
         return "limite"
@@ -182,7 +249,12 @@ def build_graph(
         graph.add_edge(START, "router")
         graph.add_conditional_edges("router", route_after_router, ["agente", "rifiuto"])
         graph.add_edge("rifiuto", END)
-    graph.add_conditional_edges("agente", route_after_model, ["strumenti", "limite", END])
+    after_model = ["strumenti", "limite", END]
+    if reviewer is not None:
+        graph.add_node("revisore", review_answer)
+        graph.add_conditional_edges("revisore", route_after_reviewer, ["agente", END])
+        after_model.append("revisore")
+    graph.add_conditional_edges("agente", route_after_model, after_model)
     graph.add_edge("strumenti", "agente")
     graph.add_edge("limite", END)
     return graph.compile()

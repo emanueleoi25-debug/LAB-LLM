@@ -3,12 +3,15 @@ import logging
 from datetime import datetime, timezone
 
 import httpx
+import openai
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 
 from assistente.cli import ask, new_history
 from assistente.dates import make_date_tools
-from assistente.graph import LIMIT_REPLY, REFUSAL_REPLY, TOOL_SKIPPED, build_graph
+from assistente.graph import LIMIT_REPLY, REFUSAL_REPLY, REVIEW_HINT, TOOL_SKIPPED, build_graph
+from assistente.revisore import Reviewer
 from assistente.router import Router
 from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
 from tests.fakes import ScriptedModel
@@ -318,3 +321,144 @@ def test_refusal_then_in_scope_question():
     assert (first, second) == (REFUSAL_REPLY, "Sono le 01:05")
     assert [m.type for m in agent.calls[0]] == ["system", "human", "ai", "human"]
     assert agent.calls[0][2].content == REFUSAL_REPLY
+
+
+OK = '{"coerente": true, "motivo": ""}'
+NO = '{"coerente": false, "motivo": "manca il calcolo."}'
+HINT = REVIEW_HINT.format(motivo="manca il calcolo.")
+
+
+def reviewer_says(*replies):
+    model = ScriptedModel([AIMessage(r) for r in replies])
+    return Reviewer(model), model
+
+
+def warnings(caplog):
+    return [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+
+
+def test_graph_nodes_with_reviewer():
+    nodes = set(build_graph(ScriptedModel([]), [clock], reviewer=reviewer_says()[0]).get_graph().nodes)
+    assert {"agente", "strumenti", "limite", "revisore"} <= nodes
+
+
+def test_graph_without_reviewer_has_no_reviewer_node():
+    assert "revisore" not in build_graph(ScriptedModel([]), [clock]).get_graph().nodes
+
+
+def test_coherent_answer_is_approved_first_time(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([AIMessage("risposta")])
+    reviewer, review_model = reviewer_says(OK)
+    result = build_graph(agent, reviewer=reviewer).invoke(start())
+    assert len(agent.calls) == 1 and len(review_model.calls) == 1
+    assert [m.type for m in result["messages"]] == ["human", "ai"]
+    assert result["esito_revisione"] == "approvata"
+    assert "revisore: coerente=sì motivo=" in caplog.text and "revisore → END" in caplog.text
+    assert "tolti" not in caplog.text
+
+
+def test_partial_answer_is_rejected_then_completed(caplog):
+    caplog.set_level(logging.INFO)
+    partial, complete = "A Tokyo sono le 01:05.", "A Tokyo sono le 01:05 e 15 per 4 fa 60."
+    agent = ScriptedModel([AIMessage(partial), AIMessage(complete)])
+    reviewer, review_model = reviewer_says(NO, OK)
+    result = build_graph(agent, reviewer=reviewer).invoke(start())
+    retry = agent.calls[1]
+    assert [m.type for m in retry[-2:]] == ["ai", "human"]
+    assert (retry[-2].content, retry[-1].content) == (partial, HINT)
+    assert [m.type for m in result["messages"]] == ["human", "ai"]
+    assert result["messages"][-1].content == complete and result["revisioni"] == 1
+    assert "revisore: coerente=no motivo=manca il calcolo." in caplog.text
+    assert "revisore → agente (revisione 1 di 1)" in caplog.text
+    assert "revisore: tolti 2 messaggi dalla cronologia" in caplog.text
+    second_review = review_model.calls[1][1].content
+    assert "Domanda dell'utente:\nx\n" in second_review and second_review.endswith(complete)
+
+
+@pytest.mark.parametrize("max_revisions, chiamate, tolti", [(1, 2, 2), (2, 3, 4)])
+def test_reviewer_always_rejecting_respects_limit(caplog, max_revisions, chiamate, tolti):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([AIMessage(f"b{i}") for i in range(1, chiamate + 1)])
+    reviewer, review_model = reviewer_says(*[NO] * chiamate)
+    result = build_graph(agent, reviewer=reviewer, max_revisions=max_revisions).invoke(start())
+    assert len(agent.calls) == chiamate and len(review_model.calls) == chiamate
+    assert [m.type for m in result["messages"]] == ["human", "ai"]
+    assert result["messages"][-1].content == f"b{chiamate}"
+    assert result["esito_revisione"] == "limite"
+    assert (
+        f"revisore: limite di revisioni raggiunto ({max_revisions}), restituita l'ultima risposta"
+        in warnings(caplog)
+    )
+    assert f"revisore: tolti {tolti} messaggi dalla cronologia" in caplog.text
+
+
+def test_unusable_reviewer_reply_approves_answer(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([AIMessage("risposta")])
+    result = build_graph(agent, reviewer=reviewer_says("boh")[0]).invoke(start())
+    assert result["messages"][-1].content == "risposta" and result["esito_revisione"] == "approvata"
+    assert "revisore: risposta non utilizzabile (JSON non valido), risposta approvata: boh" in warnings(caplog)
+
+
+def test_reviewer_server_error_approves_answer(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([AIMessage("risposta")])
+    down = openai.APIConnectionError(request=httpx.Request("POST", "http://x"))
+    result = build_graph(agent, reviewer=Reviewer(ScriptedModel([down]))).invoke(start())
+    assert result["messages"][-1].content == "risposta" and result["esito_revisione"] == "approvata"
+    assert any("errore del server" in w for w in warnings(caplog))
+
+
+def test_refusal_skips_reviewer():
+    review_model = ScriptedModel([])
+    graph = build_graph(ScriptedModel([]), router=router_says("fuori_ambito"), reviewer=Reviewer(review_model))
+    result = graph.invoke(start("ricetta?"))
+    assert review_model.calls == [] and result["messages"][-1].content == REFUSAL_REPLY
+
+
+def test_limit_skips_reviewer():
+    review_model = ScriptedModel([])
+    graph = build_graph(always_tool(2), [clock], max_tool_steps=1, reviewer=Reviewer(review_model))
+    result = graph.invoke(start())
+    assert review_model.calls == []
+    assert result["messages"][-1].content == LIMIT_REPLY.format(max_tool_steps=1)
+
+
+def test_limit_after_rejection_cleans_history(caplog):
+    caplog.set_level(logging.INFO)
+    agent = ScriptedModel([
+        AIMessage("bozza"),
+        AIMessage("", tool_calls=[call("get_current_time", {}, "c1")]),
+        AIMessage("", tool_calls=[call("get_current_time", {}, "c2")]),
+    ])
+    graph = build_graph(agent, [clock], max_tool_steps=1, reviewer=reviewer_says(NO)[0])
+    messages = graph.invoke(start())["messages"]
+    assert not any(m.content == "bozza" or m.text.startswith("Indicazione del revisore") for m in messages)
+    skipped, reply = messages[-2], messages[-1]
+    assert isinstance(skipped, ToolMessage) and skipped.tool_call_id == "c2" and skipped.content == TOOL_SKIPPED
+    assert reply.content == LIMIT_REPLY.format(max_tool_steps=1)
+    assert "revisore: tolti 2 messaggi dalla cronologia" in caplog.text
+
+
+def test_tool_pairs_of_rejected_attempt_are_kept():
+    agent = ScriptedModel([
+        AIMessage("", tool_calls=[call("get_current_time", {"city": "Tokyo"}, "c1")]),
+        AIMessage("bozza"),
+        AIMessage("completa"),
+    ])
+    result = build_graph(agent, [clock], reviewer=reviewer_says(NO, OK)[0]).invoke(start())
+    assert [m.type for m in result["messages"]] == ["human", "ai", "tool", "ai"]
+    assert result["messages"][-1].content == "completa"
+
+
+def test_next_turn_sees_no_drafts():
+    router_model = ScriptedModel([
+        AIMessage(json.dumps({"categoria": "conversazione", "motivo": "m"})) for _ in range(2)
+    ])
+    agent = ScriptedModel([AIMessage("bozza"), AIMessage("completa"), AIMessage("seconda")])
+    graph = build_graph(agent, router=Router(router_model, "ambito"), reviewer=reviewer_says(NO, OK, OK)[0])
+    history, _ = ask(graph, new_history(), "prima domanda")
+    ask(graph, history, "seconda domanda")
+    for text in (router_model.calls[1][1].content, " ".join(m.text for m in agent.calls[-1])):
+        assert "bozza" not in text and "Indicazione del revisore" not in text
