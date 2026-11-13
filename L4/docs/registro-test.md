@@ -3,6 +3,21 @@
 Esiti delle verifiche eseguite sull'assistente. Ogni sessione indica data, commit, ambiente e
 comandi; i test elencati per nome sono quelli raccolti da pytest.
 
+## Sessione del 2026-11-13 (20) — commit `ba39b88` su `dev`, verifica completa prima del push
+
+Verifica completa rifatta da capo dopo la correzione della revisione finale (`0003550`, spec §11.1)
+e il merge di `feat/revisore` in `dev` (fast-forward), come richiesto dall'utente prima di ogni
+push. Modello `google/gemma-4-e4b` passato nell'ambiente.
+
+| Verifica | Ambiente | Comando | Esito |
+|---|---|---|---|
+| Suite senza modello | venv locale, Python 3.13.14, da `L4` e da `Es.1` | `python -m pytest -q`; `L4/.venv/Scripts/python.exe -m pytest L4/tests -q -p no:cacheprovider` | 610 passed, 13 skipped in entrambi i casi |
+| Suite senza modello | container `test`, Python 3.14.9 | `docker compose --profile test run --rm --build test` | 610 passed, 13 skipped |
+| Prove reali | venv locale, servizi giorni (8000) e catalogo (8001) avviati con uvicorn, LM Studio | `RUN_LMSTUDIO_TESTS=1 … python -m pytest -m lmstudio -v` | **13 passed in 1417 s**; poi servizi fermati, porte libere |
+| Checklist Docker, memoria | PowerShell, `docker compose run --rm -T --build` con pipe | «Che ore sono a Miami?», «Quale città ti ho chiesto prima?» | `get_current_time {'city': 'Miami'}` con fuso -05:00; la seconda risposta è «Miami.»; revisore `coerente=sì` e `revisore → END` su entrambe |
+| Checklist Docker, strumenti, router e revisore | come sopra, nuovo avvio | domande del README «Verifica completa», punto 3 | nuovo avvio: la città non è ricordata; «Che ore sono?» → `get_current_time {}`, `fuso predefinito` Europe/Rome; 10 miglia → `convert_units`, `10 mi = 16.09 km`; `calculate {'expression': '1234 * 5678'}` (chiamato due volte dal modello) → 7.006.652; `7 / 0` → `Errore: divisione per zero.`, nessun numero inventato; km→kg → `Errore: unità incompatibili`; Natale → `days_between {'end': '12-25'}`, 42 giorni; 2 giugno 2027 → `date_info {'date': '2027-06-02'}`, Festa della Repubblica; multimetro → `search_catalog`, «Armadio A, ripiano 1»; nota → `add_note`, «Nota 3 salvata»; carbonara → `router → rifiuto`, nessuna riga `→ modello` né `revisore`; «Che ore sono a Tokyo e quanto fa 15 per 4?» → `calculate` e `get_current_time`, risposta con l'ora e «15 moltiplicato per 4 fa 60». Revisore: `coerente=sì` e `revisore → END` su tutte le 11 domande in ambito, nessun WARNING |
+| Checklist Docker, note dopo un nuovo avvio | come sopra | «Quali note ho?» | `list_notes`: note 3, 2 e 1 (volume `note`); poi `docker compose stop giorni catalogo` |
+
 ## Sessione del 2026-11-13 (19) — branch `feat/revisore`, commit `af5834e` + prove reali del revisore (Task 5)
 
 Verifiche dopo i Task 1-4 del piano del revisore e con le due prove reali nuove. Modello
