@@ -14,8 +14,15 @@ from assistente.config import ConfigError, Settings, load_settings
 from assistente.dates import make_date_tools
 from assistente.graph import build_graph
 from assistente.mcp_client import MCPStartupError
-from assistente.model import ModelCheckError, check_model, create_chat_model, create_router_model
+from assistente.model import (
+    ModelCheckError,
+    check_model,
+    create_chat_model,
+    create_reviewer_model,
+    create_router_model,
+)
 from assistente.notes import make_note_tools
+from assistente.revisore import Reviewer
 from assistente.router import Router
 from assistente.tools import make_calculator_tool, make_clock_tool, make_converter_tool
 
@@ -57,7 +64,9 @@ def new_history() -> list[BaseMessage]:
 
 def ask(graph, history: list[BaseMessage], question: str) -> tuple[list[BaseMessage], str]:
     """Invia una domanda al grafo; restituisce la nuova cronologia e il testo della risposta."""
-    result = graph.invoke({"messages": history + [HumanMessage(question)], "tool_steps": 0})
+    result = graph.invoke(
+        {"messages": history + [HumanMessage(question)], "tool_steps": 0, "revisioni": 0, "scartati": []}
+    )
     messages = result["messages"]
     reply = next((m for m in reversed(messages) if isinstance(m, AIMessage)), None)
     text = reply.content if reply is not None and isinstance(reply.content, str) else ""
@@ -124,10 +133,18 @@ def make_tools(settings: Settings) -> list[BaseTool]:
 
 
 def create_graph(settings: Settings):
-    """Grafo dell'applicazione: router e agente sullo stesso modello di LM Studio, con gli strumenti."""
+    """Grafo dell'applicazione: router, agente con gli strumenti e revisore sullo stesso modello di LM Studio."""
     tools = make_tools(settings)
     router = Router(create_router_model(settings), settings.ambito)
-    return build_graph(create_chat_model(settings, tools), tools, settings.max_tool_steps, router=router)
+    reviewer = Reviewer(create_reviewer_model(settings))
+    return build_graph(
+        create_chat_model(settings, tools),
+        tools,
+        settings.max_tool_steps,
+        router=router,
+        reviewer=reviewer,
+        max_revisions=settings.max_revisions,
+    )
 
 
 def main() -> int:

@@ -22,6 +22,7 @@ class Settings:
     log_level: str = "INFO"
     default_timezone: str = "Europe/Rome"
     max_tool_steps: int = 3
+    max_revisions: int = 1
     # Il valore predefinito serve solo ai test che costruiscono Settings a mano:
     # load_settings richiede GIORNI_BASE_URL.
     giorni_base_url: str = "http://localhost:8000"
@@ -75,6 +76,14 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     if max_tool_steps < 1:
         problems.append(f"MAX_TOOL_STEPS non valido: '{raw_steps}' (serve un intero maggiore o uguale a 1)")
 
+    raw_revisions = value("MAX_REVISIONI") or "1"
+    try:
+        max_revisions = int(raw_revisions)
+    except ValueError:
+        max_revisions = 0
+    if max_revisions < 1:
+        problems.append(f"MAX_REVISIONI non valido: '{raw_revisions}' (serve un intero maggiore o uguale a 1)")
+
     ambito_path = value("AMBITO_PATH") or "ambito.md"
     ambito = ""
     try:
@@ -94,6 +103,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         log_level=log_level,
         default_timezone=default_timezone,
         max_tool_steps=max_tool_steps,
+        max_revisions=max_revisions,
         giorni_base_url=giorni_base_url,
         catalogo_base_url=catalogo_base_url,
         # Assoluta: il sottoprocesso del server delle note non dipende dalla cartella corrente.

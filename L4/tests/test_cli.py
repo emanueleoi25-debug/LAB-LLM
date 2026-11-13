@@ -10,10 +10,11 @@ from langchain_core.tools import StructuredTool
 import assistente.cli as cli
 import servizio_note.server
 from assistente import notes
-from assistente.cli import SYSTEM_PROMPT, configure_logging, create_graph, main, make_tools, run_chat
+from assistente.cli import SYSTEM_PROMPT, ask, configure_logging, create_graph, main, make_tools, run_chat
 from assistente.config import Settings
 from assistente.mcp_client import MCPStartupError
 from assistente.graph import build_graph
+from assistente.revisore import Reviewer
 from assistente.router import Router
 from tests.fakes import ScriptedModel
 
@@ -240,3 +241,32 @@ def test_router_error_discards_question_and_continues():
              input_fn=inputs("prima", "seconda", "esci"), output=out, errors=errs)
     assert "risposta troncata" in errs.getvalue() and "Domanda scartata" in errs.getvalue()
     assert "Assistente> ok" in out.getvalue()
+
+
+def test_create_graph_has_reviewer_node(monkeypatch):
+    monkeypatch.setattr(cli, "make_note_tools", fake_note_tools)
+    graph = create_graph(Settings(base_url="http://localhost:1234/v1", model="m", ambito="A"))
+    assert "revisore" in graph.get_graph().nodes
+
+
+def test_ask_starts_turn_with_empty_review_state():
+    class SpyGraph:
+        def invoke(self, state):
+            self.state = state
+            return {"messages": [*state["messages"], AIMessage("ok")]}
+
+    graph = SpyGraph()
+    ask(graph, cli.new_history(), "domanda")
+    assert (graph.state["tool_steps"], graph.state["revisioni"], graph.state["scartati"]) == (0, 0, [])
+
+
+def test_agent_error_after_rejection_keeps_previous_history():
+    down = openai.APIConnectionError(request=httpx.Request("POST", "http://x"))
+    agent = ScriptedModel([AIMessage("bozza"), down])
+    reviewer = Reviewer(ScriptedModel([AIMessage('{"coerente": false, "motivo": "manca qualcosa."}')]))
+    errs = io.StringIO()
+    history = run_chat(
+        build_graph(agent, reviewer=reviewer), input_fn=inputs("domanda", "esci"), output=io.StringIO(), errors=errs
+    )
+    assert "il modello non ha risposto" in errs.getvalue()
+    assert [(m.type, m.content) for m in history] == [(m.type, m.content) for m in cli.new_history()]

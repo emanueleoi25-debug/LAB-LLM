@@ -149,3 +149,18 @@ def test_ambito_empty_file(tmp_path):
     f.write_text("  \n ", encoding="utf-8")
     with pytest.raises(ConfigError, match="AMBITO_PATH vuoto"):
         load_settings({**BASE, "AMBITO_PATH": str(f)})
+
+
+def test_max_revisions_default():
+    assert load_settings(BASE).max_revisions == 1
+
+
+def test_max_revisions_value():
+    assert load_settings({**BASE, "MAX_REVISIONI": "2"}).max_revisions == 2
+
+
+@pytest.mark.parametrize("value", ["0", "x"])
+def test_max_revisions_invalid(value):
+    with pytest.raises(ConfigError) as err:
+        load_settings({**BASE, "MAX_REVISIONI": value})
+    assert f"MAX_REVISIONI non valido: '{value}' (serve un intero maggiore o uguale a 1)" in str(err.value)
