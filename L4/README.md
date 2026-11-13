@@ -629,7 +629,8 @@ $env:RUN_LMSTUDIO_TESTS = "1"; python -m pytest -m lmstudio -v; Remove-Item Env:
    `docker compose --profile test run --rm --build test` (tutti passed, le prove reali skipped).
 2. Prove reali con LM Studio (comando sopra, con i servizi giorni e catalogo avviati): risposta,
    memoria della sessione, uso dell'orologio, del convertitore, della calcolatrice, di `date_info`,
-   di `search_catalog` e delle note, router in ambito e fuori ambito (10 passed).
+   di `search_catalog` e delle note, router in ambito, fuori ambito e dopo un rifiuto con
+   «Rispondi alla domanda di prima» (11 passed).
 3. In Docker, `docker compose run --rm assistente`:
    - «Che ore sono a Miami?» → su stderr compaiono `← modello [chiamata] get_current_time
      {'city': 'Miami'}` e un risultato con `America/New_York`; la risposta è coerente con l'ora
@@ -704,6 +705,7 @@ correzioni, con causa e motivazione, in [`docs/registro-modifiche.md`](docs/regi
 | `GIORNI_BASE_URL mancante` (codice 2) | manca la variabile in `.env` | aggiungi `GIORNI_BASE_URL=http://127.0.0.1:8000` (vedi `.env.example`) |
 | a «quanti giorni mancano all'11 febbraio?» la risposta è «già passato» o un numero negativo | il modello ha aggiunto da sé l'anno corrente (`days_between` con `end` `2026-02-11` invece di `02-11`): con gemma circa 2 volte su 10 nella serie del 2026-11-08 | controlla nei log la data passata a `days_between`; con l'anno scritto nella domanda il modello lo usa (es. «Il 2 giugno 2027 è festivo?» → `2027-06-02`, 10 su 10 il 2026-11-05) |
 | `Errore: il modello non ha risposto…` durante la chat | LM Studio fermato o modello scaricato dalla memoria; con `Error code: 400`, anche un blocco di LM Studio mentre genera una chiamata (nel log del server: «Failed to generate a tool call … timed out», visto 2 volte su 56 il 2026-11-05) | ricarica il modello e ripeti la domanda: la cronologia è intatta |
+| ogni domanda viene scartata subito con `Errore: il modello non ha risposto (Error code: 400…)`, senza riga `router:` nel log | il server rifiuta lo schema JSON del router (`response_format`): il modello caricato non supporta l'output strutturato | cerca «JSON schema error» nel log del server di LM Studio; carica un modello che supporti l'output strutturato (con `google/gemma-4-e4b` funziona) |
 | nessuna riga `strumento richiesto` nei log | `LOG_LEVEL` sopra `INFO`, oppure il modello ha risposto senza usare lo strumento | imposta `LOG_LEVEL=INFO`; riformula chiedendo l'ora attuale |
 | `strumento richiesto: get_current_time {}` seguito da `fuso predefinito` per una domanda su una città | il modello non ha passato la città allo strumento | riformula citando esplicitamente la città, es. «Che ore sono a Miami?» |
 | `risultato strumento: Errore: città sconosciuta '…'` | la città non è nell'archivio (meno di 5.000 abitanti o nome non riconosciuto) | usa il nome di una città vicina più grande, oppure un nome IANA come `America/New_York` |

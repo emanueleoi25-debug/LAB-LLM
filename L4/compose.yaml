@@ -18,6 +18,9 @@ services:
       TZ: Europe/Rome
       # Archivio delle note (server MCP avviato dall'agente come sottoprocesso): sul volume `note`.
       NOTE_DB_PATH: /app/dati/note.db
+      # Ambito del router: il file è copiato nell'immagine in /app; un percorso locale nel .env non
+      # vale nel container.
+      AMBITO_PATH: /app/ambito.md
     volumes:
       - note:/app/dati
     extra_hosts:

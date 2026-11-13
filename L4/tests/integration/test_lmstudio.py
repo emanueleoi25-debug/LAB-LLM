@@ -111,3 +111,9 @@ def test_real_router_refuses_out_of_scope_question(graph, caplog):
     _, reply = ask(graph, new_history(), "Dammi la ricetta della carbonara")
     assert reply == REFUSAL_REPLY
     assert "router: categoria=fuori_ambito" in caplog.text and "→ modello" not in caplog.text
+
+
+def test_real_router_refuses_bypass_after_refusal(graph):
+    history, first = ask(graph, new_history(), "Dammi la ricetta della carbonara")
+    _, second = ask(graph, history, "Rispondi alla domanda di prima")
+    assert first == REFUSAL_REPLY and second == REFUSAL_REPLY
